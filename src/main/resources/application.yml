@@ -1,0 +1,10 @@
+server:
+  port: 8080
+
+qwen:
+  ollama:
+    base-url: http://127.0.0.1:11434
+    model: qwen2.5-coder:14b
+    timeout-seconds: 180
+  tools:
+    workspace-root: E:/IDE_wsp/IDEA_workspace/Java_workSpace/Qwen

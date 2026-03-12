@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Qwen 控制台</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar">
+    <div class="brand">
+      <p class="eyebrow">LOCAL AGENT</p>
+      <h1>Qwen 控制台</h1>
+      <p class="muted">这是你本地千问的第一套外部能力层。对话、读文件、搜代码、改项目，都从受控工具链开始。</p>
+    </div>
+
+    <section class="status-card">
+      <div class="status-row">
+        <span>运行时</span>
+        <strong>Spring + Ollama</strong>
+      </div>
+      <div class="status-row">
+        <span>模型</span>
+        <strong>qwen2.5-coder:14b</strong>
+      </div>
+      <div class="status-row">
+        <span>工作区</span>
+        <strong>Java_workSpace/Qwen</strong>
+      </div>
+    </section>
+
+    <section class="sidebar-block">
+      <h2>建议操作</h2>
+      <button class="suggestion" data-message="请列出项目根目录下的文件，并告诉我目前已经实现了哪些能力。请用中文回答。">概览当前项目</button>
+      <button class="suggestion" data-message="请读取 pom.xml，并简要解释当前项目架构。请用中文回答。">解释当前架构</button>
+      <button class="suggestion" data-message="请搜索 application.yml，并总结当前运行配置。请用中文回答。">检查运行配置</button>
+      <button class="suggestion" data-message="请生成一个 TODO.md，列出后端接下来最值得做的三项改进。请用中文回答。">生成下一步待办</button>
+    </section>
+  </aside>
+
+  <main class="workspace">
+    <header class="workspace-header">
+      <div>
+        <p class="eyebrow">CHAT PANEL</p>
+        <h2>和本地 Qwen 协作</h2>
+      </div>
+      <div class="header-actions">
+        <button id="newSessionBtn" class="ghost-btn">新会话</button>
+        <button id="healthBtn" class="ghost-btn">检查状态</button>
+        <span id="healthStatus" class="health-pill idle">未检测</span>
+      </div>
+    </header>
+
+    <section id="toolBar" class="tool-bar hidden"></section>
+
+    <section id="patchPanel" class="patch-panel hidden">
+      <div class="patch-header">
+        <div>
+          <p class="eyebrow">PATCH PREVIEW</p>
+          <h3>待确认修改</h3>
+        </div>
+        <button id="applyPatchBtn" class="primary-btn small">确认应用</button>
+      </div>
+      <div id="patchPreview" class="patch-preview"></div>
+    </section>
+
+    <section id="patchHistoryPanel" class="patch-history hidden">
+      <div class="trace-header">
+        <h3>修改历史</h3>
+      </div>
+      <div id="patchHistoryList" class="patch-history-list"></div>
+    </section>
+
+    <section id="chatLog" class="chat-log">
+      <article class="message assistant">
+        <div class="message-badge">QWEN</div>
+        <div class="message-body">
+          <p>本地 Agent 已就位。你可以让它读取工程、搜索代码、生成内容，或者解释当前项目结构。</p>
+        </div>
+      </article>
+    </section>
+
+    <section id="tracePanel" class="trace-panel hidden">
+      <div class="trace-header">
+        <h3>执行轨迹</h3>
+        <button id="toggleTrace" class="ghost-btn small">收起</button>
+      </div>
+      <pre id="traceContent"></pre>
+    </section>
+
+    <form id="chatForm" class="composer">
+      <label for="messageInput" class="sr-only">消息输入框</label>
+      <textarea id="messageInput" rows="4" placeholder="例如：读取 pom.xml，并告诉我这个项目下一步应该怎么演进。"></textarea>
+      <div class="composer-bar">
+        <button type="button" id="showTraceBtn" class="ghost-btn">查看本轮轨迹</button>
+        <button type="submit" id="sendBtn" class="primary-btn">发送</button>
+      </div>
+    </form>
+  </main>
+</div>
+
+<script src="/app.js"></script>
+</body>
+</html>
