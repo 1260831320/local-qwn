@@ -1,0 +1,18 @@
+qwen:
+  backend:
+    type: ${QWEN_BACKEND_TYPE:ollama}
+    fallback-type: ${QWEN_BACKEND_FALLBACK:}
+  ollama:
+    base-url: ${QWEN_OLLAMA_BASE_URL:http://127.0.0.1:11434}
+    model: ${QWEN_OLLAMA_MODEL:qwen2.5-coder:14b}
+    timeout-seconds: ${QWEN_OLLAMA_TIMEOUT_SECONDS:180}
+  openvino:
+    python-exe: ${QWEN_OPENVINO_PYTHON_EXE:}
+    script-path: ${QWEN_OPENVINO_SCRIPT_PATH:}
+    model-dir: ${QWEN_OPENVINO_MODEL_DIR:}
+    device: ${QWEN_OPENVINO_DEVICE:CPU}
+    max-new-tokens: ${QWEN_OPENVINO_MAX_NEW_TOKENS:180}
+    timeout-seconds: ${QWEN_OPENVINO_TIMEOUT_SECONDS:180}
+    health-prompt: ${QWEN_OPENVINO_HEALTH_PROMPT:Reply with OK.}
+  tools:
+    workspace-root: ${QWEN_WORKSPACE_ROOT:${user.dir}}

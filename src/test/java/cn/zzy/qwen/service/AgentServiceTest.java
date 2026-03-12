@@ -30,7 +30,7 @@ import static org.mockito.Mockito.when;
 class AgentServiceTest {
 
     @Mock
-    private OllamaClient ollamaClient;
+    private ModelBackendRouter modelBackendRouter;
 
     @Mock
     private ToolRegistry toolRegistry;
@@ -56,7 +56,7 @@ class AgentServiceTest {
     void setUp() {
         actionParser = new AgentActionParser(objectMapper);
         agentService = new AgentService(
-                ollamaClient,
+                modelBackendRouter,
                 toolRegistry,
                 actionParser,
                 promptFactory,
@@ -70,13 +70,13 @@ class AgentServiceTest {
     void blocksPatchWithoutPreviewInSameTurn() throws Exception {
         when(conversationMemoryService.history("s1")).thenReturn(List.of());
         when(promptFactory.buildPlanningPrompt(any(), any(), any(), any())).thenReturn("prompt");
-        when(ollamaClient.generate("prompt")).thenReturn(
-                objectMapper.writeValueAsString(new AgentAction("tool", null, "patch_file", Map.of(
+        when(modelBackendRouter.generate("prompt")).thenReturn(
+                new ModelGeneration("ollama", objectMapper.writeValueAsString(new AgentAction("tool", null, "patch_file", Map.of(
                         "path", "a.txt",
                         "search", "old",
                         "replace", "new"
-                ))),
-                objectMapper.writeValueAsString(new AgentAction("answer", "done", null, null))
+                ))), false),
+                new ModelGeneration("ollama", objectMapper.writeValueAsString(new AgentAction("answer", "done", null, null)), false)
         );
         when(toolTraceFormatter.format(any()))
                 .thenAnswer(invocation -> ((ToolResult) invocation.getArgument(0)).output());
@@ -92,18 +92,18 @@ class AgentServiceTest {
     void allowsPatchAfterMatchingPreview() throws Exception {
         when(conversationMemoryService.history("s1")).thenReturn(List.of());
         when(promptFactory.buildPlanningPrompt(any(), any(), any(), any())).thenReturn("prompt");
-        when(ollamaClient.generate("prompt")).thenReturn(
-                objectMapper.writeValueAsString(new AgentAction("tool", null, "preview_patch_file", Map.of(
+        when(modelBackendRouter.generate("prompt")).thenReturn(
+                new ModelGeneration("ollama", objectMapper.writeValueAsString(new AgentAction("tool", null, "preview_patch_file", Map.of(
                         "path", "a.txt",
                         "search", "old",
                         "replace", "new"
-                ))),
-                objectMapper.writeValueAsString(new AgentAction("tool", null, "patch_file", Map.of(
+                ))), false),
+                new ModelGeneration("ollama", objectMapper.writeValueAsString(new AgentAction("tool", null, "patch_file", Map.of(
                         "path", "a.txt",
                         "search", "old",
                         "replace", "new"
-                ))),
-                objectMapper.writeValueAsString(new AgentAction("answer", "done", null, null))
+                ))), false),
+                new ModelGeneration("ollama", objectMapper.writeValueAsString(new AgentAction("answer", "done", null, null)), false)
         );
         when(toolRegistry.execute(eq("preview_patch_file"), anyMap()))
                 .thenReturn(new ToolResult("preview_patch_file", true, "preview"));
@@ -115,6 +115,7 @@ class AgentServiceTest {
         ChatResponse response = agentService.chat("s1", "please edit");
 
         assertThat(response.answer()).isEqualTo("done");
+        assertThat(response.backend()).isEqualTo("ollama");
         assertThat(response.pendingPatch()).isNull();
         verify(toolRegistry).execute(eq("preview_patch_file"), anyMap());
         verify(toolRegistry).execute(eq("patch_file"), anyMap());

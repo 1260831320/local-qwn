@@ -1,0 +1,16 @@
+qwen:
+  backend:
+    type: openvino
+    fallback-type: ollama
+  ollama:
+    base-url: http://127.0.0.1:11434
+    model: qwen2.5-coder:14b
+    timeout-seconds: 180
+  openvino:
+    python-exe: C:/Users/12608/AppData/Local/Programs/Python/Python312/python.exe
+    script-path: C:/Users/12608/openvino-ai/run_genai.py
+    model-dir: C:/Users/12608/models/qwen2.5-1.5b-instruct-int4-ov
+    device: NPU
+    max-new-tokens: 180
+    timeout-seconds: 180
+    health-prompt: Reply with OK.

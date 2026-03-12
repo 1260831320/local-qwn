@@ -36,20 +36,23 @@ class ChatControllerTest {
 
     @Test
     void healthReturnsServicePayload() throws Exception {
-        when(healthService.health()).thenReturn(new HealthResponse("healthy", "up", "up", "ok"));
+        when(healthService.health()).thenReturn(new HealthResponse("healthy", "up", "ollama", "up", "disabled", "default", "ok"));
 
         mockMvc.perform(get("/api/health"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("healthy"))
                 .andExpect(jsonPath("$.spring").value("up"))
-                .andExpect(jsonPath("$.ollama").value("up"));
+                .andExpect(jsonPath("$.backend").value("ollama"))
+                .andExpect(jsonPath("$.ollama").value("up"))
+                .andExpect(jsonPath("$.openvino").value("disabled"))
+                .andExpect(jsonPath("$.machineProfile").value("default"));
     }
 
     @Test
     void chatReturnsAgentResponse() throws Exception {
         PendingPatch pendingPatch = new PendingPatch("p1", "a.txt", "old", "new", "preview");
         when(agentService.chat("s1", "hello")).thenReturn(
-                new ChatResponse("hi", List.of("step"), List.of("read_file"), pendingPatch)
+                new ChatResponse("hi", List.of("step"), List.of("read_file"), pendingPatch, "ollama")
         );
 
         mockMvc.perform(post("/api/chat")
@@ -59,6 +62,7 @@ class ChatControllerTest {
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.answer").value("hi"))
+                .andExpect(jsonPath("$.backend").value("ollama"))
                 .andExpect(jsonPath("$.toolsUsed[0]").value("read_file"))
                 .andExpect(jsonPath("$.pendingPatch.patchId").value("p1"));
     }

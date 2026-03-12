@@ -18,7 +18,7 @@ const patchHistoryList = document.getElementById("patchHistoryList");
 const HEALTH_STATE_LABELS = {
   checking: "\u68c0\u6d4b\u4e2d",
   ok: "\u53cc\u7aef\u6b63\u5e38",
-  degraded: "Ollama \u79bb\u7ebf",
+  degraded: "\u540e\u7aef\u964d\u7ea7",
   fail: "\u68c0\u6d4b\u5931\u8d25"
 };
 
@@ -314,7 +314,7 @@ function refreshTracePanel(forceOpen) {
 }
 
 async function refreshHealth() {
-  setHealthState("checking", "\u6b63\u5728\u68c0\u67e5 Spring Boot \u4e0e Ollama...");
+  setHealthState("checking", "\u6b63\u5728\u68c0\u67e5 Spring Boot \u4e0e\u672c\u5730\u6a21\u578b\u540e\u7aef...");
   try {
     const response = await fetch("/api/health");
     if (!response.ok) {
@@ -335,10 +335,13 @@ function setHealthState(state, detail) {
 }
 
 function buildHealthDetail(data) {
+  const backend = data.backend || "unknown";
   const spring = data.spring || "unknown";
   const ollama = data.ollama || "unknown";
+  const openvino = data.openvino || "unknown";
+  const machineProfile = data.machineProfile || "unknown";
   const message = data.message || "";
-  return `Spring: ${spring} | Ollama: ${ollama}${message ? ` | ${message}` : ""}`;
+  return `Spring: ${spring} | Machine: ${machineProfile} | Backend: ${backend} | Ollama: ${ollama} | OpenVINO: ${openvino}${message ? ` | ${message}` : ""}`;
 }
 
 refreshHealth();
