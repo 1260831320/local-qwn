@@ -162,6 +162,9 @@ It is useful for a single running process but not persistent across restarts.
   - `qwen.tools.workspace-root`
 - Session memory currently lives only in process memory.
 - Restarting the Spring Boot app clears all chat history.
+- Daily development should land on `develop` first.
+- `master` is treated as the stable/release branch.
+- When a task is completed, refresh this file so completed items are removed and new workflow/project facts are recorded.
 
 ## How To Run
 
