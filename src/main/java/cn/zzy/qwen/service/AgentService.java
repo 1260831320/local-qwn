@@ -19,7 +19,7 @@ import java.util.UUID;
 public class AgentService {
     private static final int MAX_TOOL_STEPS = 4;
 
-    private final OllamaClient ollamaClient;
+    private final ModelBackendRouter modelBackendRouter;
     private final ToolRegistry toolRegistry;
     private final AgentActionParser actionParser;
     private final AgentPromptFactory promptFactory;
@@ -28,7 +28,7 @@ public class AgentService {
     private final PendingPatchService pendingPatchService;
 
     public AgentService(
-            OllamaClient ollamaClient,
+            ModelBackendRouter modelBackendRouter,
             ToolRegistry toolRegistry,
             AgentActionParser actionParser,
             AgentPromptFactory promptFactory,
@@ -36,7 +36,7 @@ public class AgentService {
             ConversationMemoryService conversationMemoryService,
             PendingPatchService pendingPatchService
     ) {
-        this.ollamaClient = ollamaClient;
+        this.modelBackendRouter = modelBackendRouter;
         this.toolRegistry = toolRegistry;
         this.actionParser = actionParser;
         this.promptFactory = promptFactory;
@@ -51,33 +51,36 @@ public class AgentService {
         StringBuilder transcript = new StringBuilder();
         PendingPatch pendingPatch = null;
         PendingPatch approvedPatchForTurn = null;
+        String responseBackend = "";
         List<ConversationMessage> history = conversationMemoryService.history(sessionId);
 
         for (int i = 0; i < MAX_TOOL_STEPS; i++) {
-            String modelOutput = ollamaClient.generate(
+            ModelGeneration generation = modelBackendRouter.generate(
                     promptFactory.buildPlanningPrompt(userMessage, transcript.toString(), toolRegistry, history)
             );
-            steps.add("model[" + (i + 1) + "]: " + modelOutput);
+            String modelOutput = generation.response();
+            responseBackend = generation.backend();
+            steps.add("model[" + (i + 1) + "][" + responseBackend + "]: " + modelOutput);
 
             AgentAction action = actionParser.parse(modelOutput);
             if (action == null) {
                 conversationMemoryService.append(sessionId, "user", userMessage);
                 conversationMemoryService.append(sessionId, "assistant", modelOutput);
-                return new ChatResponse(modelOutput, steps, toolsUsed, pendingPatch);
+                return new ChatResponse(modelOutput, steps, toolsUsed, pendingPatch, responseBackend);
             }
 
             if ("answer".equalsIgnoreCase(action.type())) {
                 String answer = (action.answer() == null || action.answer().isBlank()) ? modelOutput : action.answer();
                 conversationMemoryService.append(sessionId, "user", userMessage);
                 conversationMemoryService.append(sessionId, "assistant", answer);
-                return new ChatResponse(answer, steps, toolsUsed, pendingPatch);
+                return new ChatResponse(answer, steps, toolsUsed, pendingPatch, responseBackend);
             }
 
             if (!"tool".equalsIgnoreCase(action.type()) || action.tool() == null || action.arguments() == null) {
                 String answer = "The model returned an invalid action format.";
                 conversationMemoryService.append(sessionId, "user", userMessage);
                 conversationMemoryService.append(sessionId, "assistant", answer);
-                return new ChatResponse(answer, steps, toolsUsed, pendingPatch);
+                return new ChatResponse(answer, steps, toolsUsed, pendingPatch, responseBackend);
             }
 
             ToolResult result = executeToolAction(action, approvedPatchForTurn);
@@ -106,11 +109,15 @@ public class AgentService {
             }
         }
 
-        String answer = ollamaClient.generate(promptFactory.buildFallbackPrompt(userMessage, transcript.toString()));
-        steps.add("final: " + answer);
+        ModelGeneration fallbackGeneration = modelBackendRouter.generate(
+                promptFactory.buildFallbackPrompt(userMessage, transcript.toString())
+        );
+        String answer = fallbackGeneration.response();
+        responseBackend = fallbackGeneration.backend();
+        steps.add("final[" + responseBackend + "]: " + answer);
         conversationMemoryService.append(sessionId, "user", userMessage);
         conversationMemoryService.append(sessionId, "assistant", answer);
-        return new ChatResponse(answer, steps, toolsUsed, pendingPatch);
+        return new ChatResponse(answer, steps, toolsUsed, pendingPatch, responseBackend);
     }
 
     public PatchApplyResponse applyPatch(PatchApplyRequest request) {

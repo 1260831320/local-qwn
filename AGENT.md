@@ -4,7 +4,7 @@
 
 This project is the first controlled "limbs" layer for a local Qwen model.
 
-The local model remains in `Ollama`.
+The local model layer is now pluggable instead of Ollama-only.
 This Java project adds:
 
 - a REST API
@@ -18,10 +18,27 @@ This Java project adds:
   - Java 17
   - Spring Boot 3
 - Model backend:
-  - local Ollama
-  - expected endpoint: `http://127.0.0.1:11434`
-- default model:
+  - `Ollama` backend
+  - `OpenVINO` backend via local Python process execution
+  - backend routing with optional fallback
+- machine-specific config:
+  - shared defaults in `src/main/resources/machines/common.yml`
+  - default fallback profile in `src/main/resources/machines/default.yml`
+  - tracked machine overrides in `src/main/resources/machines/<profile>.yml`
+  - selection order:
+    - `QWEN_MACHINE_PROFILE`
+    - `qwen.machine.profile`
+    - `COMPUTERNAME`
+    - `HOSTNAME`
+    - `default`
+- current tracked machine profiles:
+  - `default`
+  - `redmibook14`
+- default coding model:
   - `qwen2.5-coder:14b`
+- current verified OpenVINO profile on `redmibook14`:
+  - `qwen2.5-1.5b-instruct-int4-ov`
+  - preferred device: `NPU`
 
 ## Implemented Capabilities
 
@@ -42,7 +59,9 @@ This Java project adds:
 - `GET /api/health`
 - should report both:
   - Spring Boot process health
-  - Ollama backend reachability
+  - active backend
+  - backend reachability for `ollama` and `openvino`
+  - active machine profile
 - frontend should visualize:
   - checking
   - healthy
@@ -126,6 +145,8 @@ This is still intentionally conservative and should remain bounded.
 Prompt construction and tool trace formatting are now separated from `AgentService` to keep the orchestration layer slimmer.
 Action parsing now uses a tolerant JSON parser that can recover from fenced or slightly malformed model output.
 Read and search tools now enforce file-size, line-count, and output truncation guardrails.
+The model backend is no longer hard-wired to `OllamaClient`; `AgentService` now routes generation through a backend abstraction.
+`OpenVINO` integration currently uses a verified Python entrypoint rather than Java-native bindings.
 
 The current memory model is in-memory only.
 It is useful for a single running process but not persistent across restarts.
@@ -139,6 +160,7 @@ It is useful for a single running process but not persistent across restarts.
 3. Add an explicit UI flow for create-file confirmation so `write_file` and patch confirmation feel consistent.
 4. Improve prompt instructions so Qwen emits more stable action JSON and fewer invalid tool calls.
 5. Add a project summary / code map tool for larger repositories.
+6. Reduce `/api/health` latency by making backend probes lighter or cached.
 
 ### Medium Priority
 
@@ -146,6 +168,11 @@ It is useful for a single running process but not persistent across restarts.
 2. Add RAG over local notes and project docs.
 3. Add authentication if the app is exposed beyond localhost.
 4. Add streaming responses in the frontend.
+5. Add request-level backend selection rules after more device validation.
+6. Candidate policy for later:
+   - code-heavy and tool-planning requests prefer `ollama`
+   - lightweight writing / office tasks can prefer `openvino`
+   - keep this disabled until another machine profile is validated
 
 ### Later
 
@@ -156,14 +183,19 @@ It is useful for a single running process but not persistent across restarts.
 
 ## Operating Notes
 
-- Tool workspace root is configured in:
-  - `src/main/resources/application.yml`
-- If the project folder moves, update:
-  - `qwen.tools.workspace-root`
+- The root `application.yml` now keeps only shared app-level settings.
+- Runtime backend and workspace settings are loaded from:
+  - `src/main/resources/machines/common.yml`
+  - `src/main/resources/machines/default.yml`
+  - `src/main/resources/machines/<profile>.yml`
+- Tool workspace root should normally resolve from `${user.dir}` unless a machine profile overrides it.
 - Session memory currently lives only in process memory.
 - Restarting the Spring Boot app clears all chat history.
 - Daily development should land on `develop` first.
 - `master` is treated as the stable/release branch.
+- The current OpenVINO path is validated only for local process execution through:
+  - `C:/Users/12608/openvino-ai/run_genai.py`
+- The current OpenVINO model is suitable for lightweight writing tasks, not a full replacement for the coding-oriented Ollama model.
 - When a task is completed, refresh this file so completed items are removed and new workflow/project facts are recorded.
 
 ## How To Run
@@ -210,4 +242,4 @@ If memory is working, the assistant should keep context across those turns.
 
 When continuing work on this project, the next best step is:
 
-"Persist conversation state and pending patches across restarts, then replace the current text-based pending patch payload with a structured preview model so the frontend no longer parses preview text."
+"Persist conversation state and pending patches across restarts, then replace the current text-based pending patch payload with a structured preview model. After another machine profile is validated, revisit request-level backend routing instead of relying only on machine-level backend selection and fallback."

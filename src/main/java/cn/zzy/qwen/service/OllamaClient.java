@@ -11,7 +11,7 @@ import org.springframework.web.client.RestClient;
 import java.time.Duration;
 
 @Component
-public class OllamaClient {
+public class OllamaClient implements ModelBackend {
 
     private final RestClient restClient;
     private final OllamaProperties properties;
@@ -28,7 +28,14 @@ public class OllamaClient {
                 .build();
     }
 
+    @Override
+    public String backendName() {
+        return "ollama";
+    }
+
+    @Override
     public String generate(String prompt) {
+        validateConfigured();
         OllamaGenerateResponse response = restClient.post()
                 .uri("/api/generate")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -38,10 +45,27 @@ public class OllamaClient {
         return response == null || response.response() == null ? "" : response.response().trim();
     }
 
+    @Override
     public void checkHealth() {
+        validateConfigured();
         restClient.get()
                 .uri("/api/tags")
                 .retrieve()
                 .toBodilessEntity();
+    }
+
+    @Override
+    public boolean isConfigured() {
+        return hasText(properties.baseUrl()) && hasText(properties.model());
+    }
+
+    private void validateConfigured() {
+        if (!isConfigured()) {
+            throw new IllegalStateException("Ollama backend is not fully configured.");
+        }
+    }
+
+    private boolean hasText(String value) {
+        return value != null && !value.isBlank();
     }
 }
