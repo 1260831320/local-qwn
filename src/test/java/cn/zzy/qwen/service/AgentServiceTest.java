@@ -1,6 +1,7 @@
 package cn.zzy.qwen.service;
 
 import cn.zzy.qwen.model.AgentAction;
+import cn.zzy.qwen.model.ChatRequest;
 import cn.zzy.qwen.model.ChatResponse;
 import cn.zzy.qwen.model.PendingPatch;
 import cn.zzy.qwen.model.PatchApplyRequest;
@@ -47,10 +48,20 @@ class AgentServiceTest {
     @Mock
     private PendingPatchService pendingPatchService;
 
+    @Mock
+    private ModelSelectionService modelSelectionService;
+
     private AgentService agentService;
     private AgentActionParser actionParser;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ResolvedModelSelection ollamaSelection = new ResolvedModelSelection(
+            "ollama",
+            "qwen2.5-coder:14b",
+            "ollama-coder",
+            "auto",
+            "Auto selection preferred a coding and tool-planning profile."
+    );
 
     @org.junit.jupiter.api.BeforeEach
     void setUp() {
@@ -62,48 +73,51 @@ class AgentServiceTest {
                 promptFactory,
                 toolTraceFormatter,
                 conversationMemoryService,
-                pendingPatchService
+                pendingPatchService,
+                modelSelectionService
         );
     }
 
     @Test
     void blocksPatchWithoutPreviewInSameTurn() throws Exception {
         when(conversationMemoryService.history("s1")).thenReturn(List.of());
+        when(modelSelectionService.select("please edit", null, null)).thenReturn(ollamaSelection);
         when(promptFactory.buildPlanningPrompt(any(), any(), any(), any())).thenReturn("prompt");
-        when(modelBackendRouter.generate("prompt")).thenReturn(
-                new ModelGeneration("ollama", objectMapper.writeValueAsString(new AgentAction("tool", null, "patch_file", Map.of(
+        when(modelBackendRouter.generate(eq("prompt"), any())).thenReturn(
+                new ModelGeneration(ollamaSelection, objectMapper.writeValueAsString(new AgentAction("tool", null, "patch_file", Map.of(
                         "path", "a.txt",
                         "search", "old",
                         "replace", "new"
                 ))), false),
-                new ModelGeneration("ollama", objectMapper.writeValueAsString(new AgentAction("answer", "done", null, null)), false)
+                new ModelGeneration(ollamaSelection, objectMapper.writeValueAsString(new AgentAction("answer", "done", null, null)), false)
         );
         when(toolTraceFormatter.format(any()))
                 .thenAnswer(invocation -> ((ToolResult) invocation.getArgument(0)).output());
 
-        ChatResponse response = agentService.chat("s1", "please edit");
+        ChatResponse response = agentService.chat(new ChatRequest("please edit", "s1", null, null));
 
         assertThat(response.toolsUsed()).containsExactly("patch_file");
-        assertThat(response.steps().get(1)).contains("allowed only after a matching successful preview_patch_file");
+        assertThat(response.steps()).anyMatch(step -> step.contains("allowed only after a matching successful preview_patch_file"));
         verify(toolRegistry, never()).execute(eq("patch_file"), anyMap());
     }
 
     @Test
     void allowsPatchAfterMatchingPreview() throws Exception {
         when(conversationMemoryService.history("s1")).thenReturn(List.of());
+        when(modelSelectionService.select("please edit", null, null)).thenReturn(ollamaSelection);
         when(promptFactory.buildPlanningPrompt(any(), any(), any(), any())).thenReturn("prompt");
-        when(modelBackendRouter.generate("prompt")).thenReturn(
-                new ModelGeneration("ollama", objectMapper.writeValueAsString(new AgentAction("tool", null, "preview_patch_file", Map.of(
+        when(modelBackendRouter.generate(eq("prompt"), any())).thenReturn(
+                new ModelGeneration(ollamaSelection, objectMapper.writeValueAsString(new AgentAction("tool", null, "preview_patch_file", Map.of(
                         "path", "a.txt",
                         "search", "old",
                         "replace", "new"
                 ))), false),
-                new ModelGeneration("ollama", objectMapper.writeValueAsString(new AgentAction("tool", null, "patch_file", Map.of(
+                new ModelGeneration(ollamaSelection, objectMapper.writeValueAsString(new AgentAction("tool", null, "patch_file", Map.of(
                         "path", "a.txt",
                         "search", "old",
                         "replace", "new"
                 ))), false),
-                new ModelGeneration("ollama", objectMapper.writeValueAsString(new AgentAction("answer", "done", null, null)), false)
+                new ModelGeneration(ollamaSelection, objectMapper.writeValueAsString(new AgentAction("answer", "done", null, null)), false)
         );
         when(toolRegistry.execute(eq("preview_patch_file"), anyMap()))
                 .thenReturn(new ToolResult("preview_patch_file", true, "preview"));
@@ -112,10 +126,13 @@ class AgentServiceTest {
         when(toolTraceFormatter.format(any()))
                 .thenAnswer(invocation -> ((ToolResult) invocation.getArgument(0)).output());
 
-        ChatResponse response = agentService.chat("s1", "please edit");
+        ChatResponse response = agentService.chat(new ChatRequest("please edit", "s1", null, null));
 
         assertThat(response.answer()).isEqualTo("done");
         assertThat(response.backend()).isEqualTo("ollama");
+        assertThat(response.modelProfile()).isEqualTo("ollama-coder");
+        assertThat(response.model()).isEqualTo("qwen2.5-coder:14b");
+        assertThat(response.fallbackUsed()).isFalse();
         assertThat(response.pendingPatch()).isNull();
         verify(toolRegistry).execute(eq("preview_patch_file"), anyMap());
         verify(toolRegistry).execute(eq("patch_file"), anyMap());

@@ -2,6 +2,7 @@ package cn.zzy.qwen.service;
 
 import cn.zzy.qwen.model.ChatResponse;
 import cn.zzy.qwen.model.AgentAction;
+import cn.zzy.qwen.model.ChatRequest;
 import cn.zzy.qwen.model.ConversationMessage;
 import cn.zzy.qwen.model.PendingPatch;
 import cn.zzy.qwen.model.PatchApplyRequest;
@@ -26,6 +27,7 @@ public class AgentService {
     private final ToolTraceFormatter toolTraceFormatter;
     private final ConversationMemoryService conversationMemoryService;
     private final PendingPatchService pendingPatchService;
+    private final ModelSelectionService modelSelectionService;
 
     public AgentService(
             ModelBackendRouter modelBackendRouter,
@@ -34,7 +36,8 @@ public class AgentService {
             AgentPromptFactory promptFactory,
             ToolTraceFormatter toolTraceFormatter,
             ConversationMemoryService conversationMemoryService,
-            PendingPatchService pendingPatchService
+            PendingPatchService pendingPatchService,
+            ModelSelectionService modelSelectionService
     ) {
         this.modelBackendRouter = modelBackendRouter;
         this.toolRegistry = toolRegistry;
@@ -43,44 +46,60 @@ public class AgentService {
         this.toolTraceFormatter = toolTraceFormatter;
         this.conversationMemoryService = conversationMemoryService;
         this.pendingPatchService = pendingPatchService;
+        this.modelSelectionService = modelSelectionService;
     }
 
-    public ChatResponse chat(String sessionId, String userMessage) {
+    public ChatResponse chat(ChatRequest request) {
+        String sessionId = request.sessionId();
+        String userMessage = request.message();
         List<String> steps = new ArrayList<>();
         List<String> toolsUsed = new ArrayList<>();
         StringBuilder transcript = new StringBuilder();
         PendingPatch pendingPatch = null;
         PendingPatch approvedPatchForTurn = null;
-        String responseBackend = "";
         List<ConversationMessage> history = conversationMemoryService.history(sessionId);
+        ResolvedModelSelection activeSelection = modelSelectionService.select(
+                userMessage,
+                request.backend(),
+                request.modelProfile()
+        );
+        boolean fallbackUsed = false;
+
+        steps.add(formatSelectionStep("request", activeSelection));
 
         for (int i = 0; i < MAX_TOOL_STEPS; i++) {
             ModelGeneration generation = modelBackendRouter.generate(
-                    promptFactory.buildPlanningPrompt(userMessage, transcript.toString(), toolRegistry, history)
+                    promptFactory.buildPlanningPrompt(userMessage, transcript.toString(), toolRegistry, history),
+                    activeSelection
             );
+            activeSelection = generation.selection();
+            fallbackUsed = fallbackUsed || generation.fallbackUsed();
+            if (generation.fallbackUsed()) {
+                steps.add(formatSelectionStep("fallback", activeSelection));
+            }
             String modelOutput = generation.response();
-            responseBackend = generation.backend();
-            steps.add("model[" + (i + 1) + "][" + responseBackend + "]: " + modelOutput);
+            steps.add("model[" + (i + 1) + "][" + activeSelection.backend() + "/" + activeSelection.modelProfile() + "]: "
+                    + modelOutput);
 
             AgentAction action = actionParser.parse(modelOutput);
             if (action == null) {
                 conversationMemoryService.append(sessionId, "user", userMessage);
                 conversationMemoryService.append(sessionId, "assistant", modelOutput);
-                return new ChatResponse(modelOutput, steps, toolsUsed, pendingPatch, responseBackend);
+                return buildResponse(modelOutput, steps, toolsUsed, pendingPatch, generation, fallbackUsed);
             }
 
             if ("answer".equalsIgnoreCase(action.type())) {
                 String answer = (action.answer() == null || action.answer().isBlank()) ? modelOutput : action.answer();
                 conversationMemoryService.append(sessionId, "user", userMessage);
                 conversationMemoryService.append(sessionId, "assistant", answer);
-                return new ChatResponse(answer, steps, toolsUsed, pendingPatch, responseBackend);
+                return buildResponse(answer, steps, toolsUsed, pendingPatch, generation, fallbackUsed);
             }
 
             if (!"tool".equalsIgnoreCase(action.type()) || action.tool() == null || action.arguments() == null) {
                 String answer = "The model returned an invalid action format.";
                 conversationMemoryService.append(sessionId, "user", userMessage);
                 conversationMemoryService.append(sessionId, "assistant", answer);
-                return new ChatResponse(answer, steps, toolsUsed, pendingPatch, responseBackend);
+                return buildResponse(answer, steps, toolsUsed, pendingPatch, generation, fallbackUsed);
             }
 
             ToolResult result = executeToolAction(action, approvedPatchForTurn);
@@ -110,14 +129,18 @@ public class AgentService {
         }
 
         ModelGeneration fallbackGeneration = modelBackendRouter.generate(
-                promptFactory.buildFallbackPrompt(userMessage, transcript.toString())
+                promptFactory.buildFallbackPrompt(userMessage, transcript.toString()),
+                activeSelection
         );
+        fallbackUsed = fallbackUsed || fallbackGeneration.fallbackUsed();
+        if (fallbackGeneration.fallbackUsed()) {
+            steps.add(formatSelectionStep("fallback", fallbackGeneration.selection()));
+        }
         String answer = fallbackGeneration.response();
-        responseBackend = fallbackGeneration.backend();
-        steps.add("final[" + responseBackend + "]: " + answer);
+        steps.add("final[" + fallbackGeneration.backend() + "/" + fallbackGeneration.modelProfile() + "]: " + answer);
         conversationMemoryService.append(sessionId, "user", userMessage);
         conversationMemoryService.append(sessionId, "assistant", answer);
-        return new ChatResponse(answer, steps, toolsUsed, pendingPatch, responseBackend);
+        return buildResponse(answer, steps, toolsUsed, pendingPatch, fallbackGeneration, fallbackUsed);
     }
 
     public PatchApplyResponse applyPatch(PatchApplyRequest request) {
@@ -160,5 +183,35 @@ public class AgentService {
         return pendingPatch.path().equals(arguments.get("path"))
                 && pendingPatch.search().equals(arguments.get("search"))
                 && pendingPatch.replace().equals(arguments.getOrDefault("replace", ""));
+    }
+
+    private ChatResponse buildResponse(
+            String answer,
+            List<String> steps,
+            List<String> toolsUsed,
+            PendingPatch pendingPatch,
+            ModelGeneration generation,
+            boolean fallbackUsed
+    ) {
+        return new ChatResponse(
+                answer,
+                steps,
+                toolsUsed,
+                pendingPatch,
+                generation.backend(),
+                generation.modelProfile(),
+                generation.model(),
+                generation.selectionMode(),
+                generation.selectionReason(),
+                fallbackUsed
+        );
+    }
+
+    private String formatSelectionStep(String phase, ResolvedModelSelection selection) {
+        return "selection[" + phase + "]: backend=" + selection.backend()
+                + ", profile=" + selection.modelProfile()
+                + ", model=" + selection.model()
+                + ", mode=" + selection.selectionMode()
+                + ", reason=" + selection.selectionReason();
     }
 }

@@ -33,13 +33,21 @@ public class OpenVinoClient implements ModelBackend {
     }
 
     @Override
-    public String generate(String prompt) {
-        return runCommand(prompt, Math.max(properties.maxNewTokens(), 1));
+    public String generate(BackendGenerationRequest request) {
+        return runCommand(
+                request.prompt(),
+                Math.max(properties.maxNewTokens(), 1),
+                request.model()
+        );
     }
 
     @Override
     public void checkHealth() {
-        String output = runCommand(properties.healthPrompt(), Math.max(1, Math.min(properties.maxNewTokens(), HEALTH_MAX_NEW_TOKENS)));
+        String output = runCommand(
+                properties.healthPrompt(),
+                Math.max(1, Math.min(properties.maxNewTokens(), HEALTH_MAX_NEW_TOKENS)),
+                properties.modelDir()
+        );
         if (output.isBlank()) {
             throw new IllegalStateException("OpenVINO health check returned an empty response.");
         }
@@ -52,16 +60,19 @@ public class OpenVinoClient implements ModelBackend {
                 && hasText(properties.modelDir());
     }
 
-    private String runCommand(String prompt, int maxNewTokens) {
+    private String runCommand(String prompt, int maxNewTokens, String requestedModelDir) {
         validateConfigured();
         validatePath("python executable", properties.pythonExe(), false);
         validatePath("script path", properties.scriptPath(), false);
-        validatePath("model directory", properties.modelDir(), true);
+        String modelDir = requestedModelDir == null || requestedModelDir.isBlank()
+                ? properties.modelDir()
+                : requestedModelDir.trim();
+        validatePath("model directory", modelDir, true);
 
         List<String> command = new ArrayList<>();
         command.add(properties.pythonExe());
         command.add(properties.scriptPath());
-        command.add(properties.modelDir());
+        command.add(modelDir);
         command.add(prompt == null ? "" : prompt);
         if (hasText(properties.device())) {
             command.add("--device");

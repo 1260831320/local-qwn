@@ -14,5 +14,16 @@ qwen:
     max-new-tokens: ${QWEN_OPENVINO_MAX_NEW_TOKENS:180}
     timeout-seconds: ${QWEN_OPENVINO_TIMEOUT_SECONDS:180}
     health-prompt: ${QWEN_OPENVINO_HEALTH_PROMPT:Reply with OK.}
+  models:
+    auto-code-profile: ollama-coder
+    auto-general-profile: ollama-coder
+    default-profile-by-backend:
+      ollama: ollama-coder
+    profiles:
+      ollama-coder:
+        backend: ollama
+        model: ${QWEN_OLLAMA_MODEL:qwen2.5-coder:14b}
+        display-name: Ollama Coder
+        description: Default coding and tool-planning profile.
   tools:
     workspace-root: ${QWEN_WORKSPACE_ROOT:${user.dir}}

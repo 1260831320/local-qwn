@@ -4,7 +4,7 @@ public interface ModelBackend {
 
     String backendName();
 
-    String generate(String prompt);
+    String generate(BackendGenerationRequest request);
 
     void checkHealth();
 

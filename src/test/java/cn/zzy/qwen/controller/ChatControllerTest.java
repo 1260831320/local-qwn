@@ -1,11 +1,14 @@
 package cn.zzy.qwen.controller;
 
+import cn.zzy.qwen.model.ChatRequest;
 import cn.zzy.qwen.model.ChatResponse;
 import cn.zzy.qwen.model.HealthResponse;
 import cn.zzy.qwen.model.PendingPatch;
 import cn.zzy.qwen.model.PatchApplyResponse;
+import cn.zzy.qwen.model.RuntimeOptionsResponse;
 import cn.zzy.qwen.service.AgentService;
 import cn.zzy.qwen.service.HealthService;
+import cn.zzy.qwen.service.RuntimeOptionsService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -14,7 +17,9 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.List;
+import java.util.Map;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -34,6 +39,9 @@ class ChatControllerTest {
     @MockBean
     private HealthService healthService;
 
+    @MockBean
+    private RuntimeOptionsService runtimeOptionsService;
+
     @Test
     void healthReturnsServicePayload() throws Exception {
         when(healthService.health()).thenReturn(new HealthResponse("healthy", "up", "ollama", "up", "disabled", "default", "ok"));
@@ -51,18 +59,30 @@ class ChatControllerTest {
     @Test
     void chatReturnsAgentResponse() throws Exception {
         PendingPatch pendingPatch = new PendingPatch("p1", "a.txt", "old", "new", "preview");
-        when(agentService.chat("s1", "hello")).thenReturn(
-                new ChatResponse("hi", List.of("step"), List.of("read_file"), pendingPatch, "ollama")
+        when(agentService.chat(any(ChatRequest.class))).thenReturn(
+                new ChatResponse(
+                        "hi",
+                        List.of("step"),
+                        List.of("read_file"),
+                        pendingPatch,
+                        "ollama",
+                        "ollama-coder",
+                        "qwen2.5-coder:14b",
+                        "auto",
+                        "Auto selection preferred a coding and tool-planning profile.",
+                        false
+                )
         );
 
         mockMvc.perform(post("/api/chat")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"message":"hello","sessionId":"s1"}
+                                {"message":"hello","sessionId":"s1","backend":"auto","modelProfile":"auto"}
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.answer").value("hi"))
                 .andExpect(jsonPath("$.backend").value("ollama"))
+                .andExpect(jsonPath("$.modelProfile").value("ollama-coder"))
                 .andExpect(jsonPath("$.toolsUsed[0]").value("read_file"))
                 .andExpect(jsonPath("$.pendingPatch.patchId").value("p1"));
     }
@@ -75,6 +95,41 @@ class ChatControllerTest {
                                 {"message":" ","sessionId":"s1"}
                                 """))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void chatReturnsBadRequestForInvalidModelProfile() throws Exception {
+        when(agentService.chat(any(ChatRequest.class)))
+                .thenThrow(new IllegalArgumentException("Unknown model profile 'bad-profile'."));
+
+        mockMvc.perform(post("/api/chat")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"message":"hello","sessionId":"s1","modelProfile":"bad-profile"}
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("Unknown model profile 'bad-profile'."));
+    }
+
+    @Test
+    void runtimeOptionsReturnsServicePayload() throws Exception {
+        when(runtimeOptionsService.runtimeOptions()).thenReturn(new RuntimeOptionsResponse(
+                "redmibook14",
+                "openvino",
+                "ollama",
+                "ollama-coder",
+                "openvino-lite",
+                Map.of("ollama", "ollama-coder", "openvino", "openvino-lite"),
+                List.of("ollama", "openvino"),
+                List.of()
+        ));
+
+        mockMvc.perform(get("/api/runtime/options"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.machineProfile").value("redmibook14"))
+                .andExpect(jsonPath("$.configuredBackend").value("openvino"))
+                .andExpect(jsonPath("$.configuredFallbackBackend").value("ollama"))
+                .andExpect(jsonPath("$.autoGeneralProfile").value("openvino-lite"));
     }
 
     @Test

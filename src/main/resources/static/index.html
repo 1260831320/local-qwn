@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Qwen 控制台</title>
+  <title>Qwen Control Panel</title>
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
@@ -11,31 +11,35 @@
   <aside class="sidebar">
     <div class="brand">
       <p class="eyebrow">LOCAL AGENT</p>
-      <h1>Qwen 控制台</h1>
-      <p class="muted">这是你本地千问的第一套外部能力层。对话、读文件、搜代码、改项目，都从受控工具链开始。</p>
+      <h1>Qwen Control Panel</h1>
+      <p class="muted">A local agent workspace with controlled tools, pluggable backends, and request-level model routing.</p>
     </div>
 
     <section class="status-card">
       <div class="status-row">
-        <span>运行时</span>
-        <strong>Spring + Ollama</strong>
+        <span>Machine</span>
+        <strong id="machineProfileValue">loading</strong>
       </div>
       <div class="status-row">
-        <span>模型</span>
-        <strong>qwen2.5-coder:14b</strong>
+        <span>Backend</span>
+        <strong id="runtimeBackendValue">loading</strong>
       </div>
       <div class="status-row">
-        <span>工作区</span>
-        <strong>Java_workSpace/Qwen</strong>
+        <span>Model</span>
+        <strong id="runtimeModelValue">loading</strong>
+      </div>
+      <div class="status-row">
+        <span>Fallback</span>
+        <strong id="runtimeFallbackValue">loading</strong>
       </div>
     </section>
 
     <section class="sidebar-block">
-      <h2>建议操作</h2>
-      <button class="suggestion" data-message="请列出项目根目录下的文件，并告诉我目前已经实现了哪些能力。请用中文回答。">概览当前项目</button>
-      <button class="suggestion" data-message="请读取 pom.xml，并简要解释当前项目架构。请用中文回答。">解释当前架构</button>
-      <button class="suggestion" data-message="请搜索 application.yml，并总结当前运行配置。请用中文回答。">检查运行配置</button>
-      <button class="suggestion" data-message="请生成一个 TODO.md，列出后端接下来最值得做的三项改进。请用中文回答。">生成下一步待办</button>
+      <h2>Suggested Tasks</h2>
+      <button class="suggestion" data-message="Please list the top-level project files and summarize the current capabilities. Reply in Chinese.">Project overview</button>
+      <button class="suggestion" data-message="Please read pom.xml and explain the current architecture in Chinese.">Explain architecture</button>
+      <button class="suggestion" data-message="Please review the runtime configuration and explain which backend is likely to be used. Reply in Chinese.">Review runtime config</button>
+      <button class="suggestion" data-message="Please create TODO.md with the next three backend improvements. Reply in Chinese.">Create next TODO</button>
     </section>
   </aside>
 
@@ -43,14 +47,38 @@
     <header class="workspace-header">
       <div>
         <p class="eyebrow">CHAT PANEL</p>
-        <h2>和本地 Qwen 协作</h2>
+        <h2>Collaborate with local Qwen</h2>
       </div>
       <div class="header-actions">
-        <button id="newSessionBtn" class="ghost-btn">新会话</button>
-        <button id="healthBtn" class="ghost-btn">检查状态</button>
-        <span id="healthStatus" class="health-pill idle">未检测</span>
+        <button id="newSessionBtn" class="ghost-btn">New session</button>
+        <button id="healthBtn" class="ghost-btn">Check health</button>
+        <span id="healthStatus" class="health-pill idle">NOT CHECKED</span>
       </div>
     </header>
+
+    <section class="runtime-controls">
+      <div class="runtime-controls-header">
+        <div>
+          <p class="eyebrow">REQUEST ROUTING</p>
+          <h3>Backend and model selection</h3>
+        </div>
+      </div>
+      <div class="control-grid">
+        <label class="control-field" for="backendSelect">
+          <span>Backend</span>
+          <select id="backendSelect">
+            <option value="auto">Auto</option>
+          </select>
+        </label>
+        <label class="control-field" for="modelProfileSelect">
+          <span>Model Profile</span>
+          <select id="modelProfileSelect">
+            <option value="auto">Auto</option>
+          </select>
+        </label>
+      </div>
+      <p id="runtimeHint" class="runtime-hint">Loading runtime options...</p>
+    </section>
 
     <section id="toolBar" class="tool-bar hidden"></section>
 
@@ -58,16 +86,16 @@
       <div class="patch-header">
         <div>
           <p class="eyebrow">PATCH PREVIEW</p>
-          <h3>待确认修改</h3>
+          <h3>Pending change</h3>
         </div>
-        <button id="applyPatchBtn" class="primary-btn small">确认应用</button>
+        <button id="applyPatchBtn" class="primary-btn small">Apply patch</button>
       </div>
       <div id="patchPreview" class="patch-preview"></div>
     </section>
 
     <section id="patchHistoryPanel" class="patch-history hidden">
       <div class="trace-header">
-        <h3>修改历史</h3>
+        <h3>Patch history</h3>
       </div>
       <div id="patchHistoryList" class="patch-history-list"></div>
     </section>
@@ -76,25 +104,25 @@
       <article class="message assistant">
         <div class="message-badge">QWEN</div>
         <div class="message-body">
-          <p>本地 Agent 已就位。你可以让它读取工程、搜索代码、生成内容，或者解释当前项目结构。</p>
+          <p>Local agent is ready. Ask it to inspect files, explain the current project, or edit the workspace through the controlled tool layer.</p>
         </div>
       </article>
     </section>
 
     <section id="tracePanel" class="trace-panel hidden">
       <div class="trace-header">
-        <h3>执行轨迹</h3>
-        <button id="toggleTrace" class="ghost-btn small">收起</button>
+        <h3>Execution trace</h3>
+        <button id="toggleTrace" class="ghost-btn small">Hide</button>
       </div>
       <pre id="traceContent"></pre>
     </section>
 
     <form id="chatForm" class="composer">
-      <label for="messageInput" class="sr-only">消息输入框</label>
-      <textarea id="messageInput" rows="4" placeholder="例如：读取 pom.xml，并告诉我这个项目下一步应该怎么演进。"></textarea>
+      <label for="messageInput" class="sr-only">Message input</label>
+      <textarea id="messageInput" rows="4" placeholder="For example: read pom.xml and tell me how this project should evolve next."></textarea>
       <div class="composer-bar">
-        <button type="button" id="showTraceBtn" class="ghost-btn">查看本轮轨迹</button>
-        <button type="submit" id="sendBtn" class="primary-btn">发送</button>
+        <button type="button" id="showTraceBtn" class="ghost-btn">Show last trace</button>
+        <button type="submit" id="sendBtn" class="primary-btn">Send</button>
       </div>
     </form>
   </main>

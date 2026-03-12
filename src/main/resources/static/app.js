@@ -1,4 +1,4 @@
-﻿const chatForm = document.getElementById("chatForm");
+const chatForm = document.getElementById("chatForm");
 const messageInput = document.getElementById("messageInput");
 const chatLog = document.getElementById("chatLog");
 const newSessionBtn = document.getElementById("newSessionBtn");
@@ -14,17 +14,25 @@ const patchPreview = document.getElementById("patchPreview");
 const applyPatchBtn = document.getElementById("applyPatchBtn");
 const patchHistoryPanel = document.getElementById("patchHistoryPanel");
 const patchHistoryList = document.getElementById("patchHistoryList");
+const backendSelect = document.getElementById("backendSelect");
+const modelProfileSelect = document.getElementById("modelProfileSelect");
+const runtimeHint = document.getElementById("runtimeHint");
+const machineProfileValue = document.getElementById("machineProfileValue");
+const runtimeBackendValue = document.getElementById("runtimeBackendValue");
+const runtimeModelValue = document.getElementById("runtimeModelValue");
+const runtimeFallbackValue = document.getElementById("runtimeFallbackValue");
 
 const HEALTH_STATE_LABELS = {
-  checking: "\u68c0\u6d4b\u4e2d",
-  ok: "\u53cc\u7aef\u6b63\u5e38",
-  degraded: "\u540e\u7aef\u964d\u7ea7",
-  fail: "\u68c0\u6d4b\u5931\u8d25"
+  checking: "CHECKING",
+  ok: "HEALTHY",
+  degraded: "DEGRADED",
+  fail: "FAILED"
 };
 
 let lastTrace = [];
 let pendingPatch = null;
 let patchHistory = [];
+let runtimeOptions = null;
 let sessionId = crypto.randomUUID();
 
 for (const button of document.querySelectorAll(".suggestion")) {
@@ -35,10 +43,7 @@ for (const button of document.querySelectorAll(".suggestion")) {
 }
 
 messageInput.addEventListener("keydown", (event) => {
-  if (event.key !== "Enter" || event.isComposing) {
-    return;
-  }
-  if (event.ctrlKey) {
+  if (event.key !== "Enter" || event.isComposing || event.ctrlKey) {
     return;
   }
   event.preventDefault();
@@ -64,7 +69,7 @@ newSessionBtn.addEventListener("click", async () => {
   renderPatchHistory();
   tracePanel.classList.add("hidden");
   chatLog.innerHTML = "";
-  appendMessage("assistant", "QWEN", "\u5df2\u521b\u5efa\u65b0\u4f1a\u8bdd\u3002\u65b0\u7684\u4e0a\u4e0b\u6587\u5df2\u7ecf\u5f00\u59cb\u3002");
+  appendMessage("assistant", "QWEN", "A new session has started.");
 });
 
 showTraceBtn.addEventListener("click", () => {
@@ -83,7 +88,7 @@ applyPatchBtn.addEventListener("click", async () => {
   const applyingPatch = pendingPatch;
   applyPatchBtn.disabled = true;
   try {
-    const response = await fetch("/api/patch/apply", {
+    const data = await requestJson("/api/patch/apply", {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
@@ -94,17 +99,12 @@ applyPatchBtn.addEventListener("click", async () => {
       })
     });
 
-    if (!response.ok) {
-      throw new Error(`\u72b6\u6001\u7801 ${response.status}`);
-    }
-
-    const data = await response.json();
     appendMessage(
       "assistant",
       "QWEN",
       data.success
-        ? `\u4fee\u6539\u5df2\u5e94\u7528\uff1a${data.message}`
-        : `\u4fee\u6539\u5931\u8d25\uff1a${data.message}`
+        ? `Patch applied: ${data.message}`
+        : `Patch failed: ${data.message}`
     );
     pushPatchHistory(applyingPatch, data.success, data.message);
     if (data.success) {
@@ -112,7 +112,7 @@ applyPatchBtn.addEventListener("click", async () => {
     }
   } catch (error) {
     pushPatchHistory(applyingPatch, false, error.message);
-    appendMessage("assistant", "QWEN", `\u5e94\u7528\u4fee\u6539\u5931\u8d25\uff1a${error.message}`);
+    appendMessage("assistant", "QWEN", `Applying the patch failed: ${error.message}`);
   } finally {
     applyPatchBtn.disabled = false;
   }
@@ -127,30 +127,31 @@ chatForm.addEventListener("submit", async (event) => {
 
   appendMessage("user", "YOU", message);
   messageInput.value = "";
-  appendMessage("assistant", "QWEN", "\u6b63\u5728\u601d\u8003...");
+  appendMessage("assistant", "QWEN", "Thinking...");
   const pending = chatLog.lastElementChild;
 
   try {
-    const response = await fetch("/api/chat", {
+    const data = await requestJson("/api/chat", {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
       },
-      body: JSON.stringify({ message, sessionId })
+      body: JSON.stringify({
+        message,
+        sessionId,
+        backend: backendSelect.value || "auto",
+        modelProfile: modelProfileSelect.value || "auto"
+      })
     });
 
-    if (!response.ok) {
-      throw new Error(`\u72b6\u6001\u7801 ${response.status}`);
-    }
-
-    const data = await response.json();
     lastTrace = Array.isArray(data.steps) ? data.steps : [];
     renderTools(Array.isArray(data.toolsUsed) ? data.toolsUsed : []);
     renderPatch(data.pendingPatch || null);
     refreshTracePanel(false);
+    updateResolvedRuntime(data);
     pending.querySelector(".message-body").textContent = data.answer || "(empty response)";
   } catch (error) {
-    pending.querySelector(".message-body").textContent = `\u8bf7\u6c42\u5931\u8d25\uff1a${error.message}`;
+    pending.querySelector(".message-body").textContent = `Request failed: ${error.message}`;
     refreshTracePanel(false);
   }
 
@@ -310,21 +311,20 @@ function refreshTracePanel(forceOpen) {
   }
   traceContent.textContent = lastTrace.length
     ? lastTrace.join("\n\n")
-    : "\u5f53\u524d\u8fd8\u6ca1\u6709\u53ef\u663e\u793a\u7684\u6267\u884c\u8f68\u8ff9\u3002";
+    : "No execution trace is available yet.";
 }
 
 async function refreshHealth() {
-  setHealthState("checking", "\u6b63\u5728\u68c0\u67e5 Spring Boot \u4e0e\u672c\u5730\u6a21\u578b\u540e\u7aef...");
+  setHealthState("checking", "Checking Spring Boot and local model backends...");
   try {
-    const response = await fetch("/api/health");
-    if (!response.ok) {
-      throw new Error(`\u72b6\u6001\u7801 ${response.status}`);
-    }
-    const data = await response.json();
+    const data = await requestJson("/api/health");
     const nextState = data.status === "healthy" ? "ok" : data.status === "degraded" ? "degraded" : "fail";
     setHealthState(nextState, buildHealthDetail(data));
+    if (data.machineProfile) {
+      machineProfileValue.textContent = data.machineProfile;
+    }
   } catch (error) {
-    setHealthState("fail", `\u5065\u5eb7\u68c0\u67e5\u5931\u8d25\uff1a${error.message}`);
+    setHealthState("fail", `Health check failed: ${error.message}`);
   }
 }
 
@@ -344,4 +344,112 @@ function buildHealthDetail(data) {
   return `Spring: ${spring} | Machine: ${machineProfile} | Backend: ${backend} | Ollama: ${ollama} | OpenVINO: ${openvino}${message ? ` | ${message}` : ""}`;
 }
 
+async function loadRuntimeOptions() {
+  try {
+    runtimeOptions = await requestJson("/api/runtime/options");
+    populateBackendOptions(runtimeOptions.availableBackends || []);
+    populateModelProfileOptions(runtimeOptions.modelProfiles || []);
+    updateRuntimeSummaryFromOptions();
+  } catch (error) {
+    runtimeHint.textContent = `Runtime options are unavailable: ${error.message}`;
+    runtimeHint.classList.add("runtime-hint-error");
+  }
+}
+
+function populateBackendOptions(backends) {
+  const current = backendSelect.value || "auto";
+  backendSelect.innerHTML = "";
+  backendSelect.appendChild(createOption("auto", "Auto"));
+  for (const backend of backends) {
+    backendSelect.appendChild(createOption(backend, backend));
+  }
+  backendSelect.value = hasOption(backendSelect, current) ? current : "auto";
+}
+
+function populateModelProfileOptions(profiles) {
+  const current = modelProfileSelect.value || "auto";
+  modelProfileSelect.innerHTML = "";
+  modelProfileSelect.appendChild(createOption("auto", "Auto"));
+  for (const profile of profiles) {
+    const label = profile.displayName
+      ? `${profile.displayName} (${profile.backend})`
+      : `${profile.id} (${profile.backend})`;
+    modelProfileSelect.appendChild(createOption(profile.id, label));
+  }
+  modelProfileSelect.value = hasOption(modelProfileSelect, current) ? current : "auto";
+}
+
+function updateRuntimeSummaryFromOptions() {
+  machineProfileValue.textContent = runtimeOptions.machineProfile || "unknown";
+  runtimeBackendValue.textContent = runtimeOptions.configuredBackend || "auto";
+  runtimeFallbackValue.textContent = runtimeOptions.configuredFallbackBackend || "none";
+  runtimeModelValue.textContent = `auto: ${runtimeOptions.autoCodeProfile || "?"} / ${runtimeOptions.autoGeneralProfile || "?"}`;
+  runtimeHint.textContent = buildDefaultRuntimeHint(runtimeOptions);
+  runtimeHint.classList.remove("runtime-hint-error");
+}
+
+function updateResolvedRuntime(data) {
+  runtimeBackendValue.textContent = data.fallbackUsed
+    ? `${data.backend || "unknown"} (fallback)`
+    : (data.backend || "unknown");
+  runtimeModelValue.textContent = formatResolvedModel(data);
+  runtimeHint.textContent = buildResolvedRuntimeHint(data);
+  runtimeHint.classList.remove("runtime-hint-error");
+}
+
+function formatResolvedModel(data) {
+  const profile = data.modelProfile || "unknown-profile";
+  const model = abbreviateModel(data.model || "");
+  return model ? `${profile} -> ${model}` : profile;
+}
+
+function buildDefaultRuntimeHint(options) {
+  return `Auto mode uses ${options.autoCodeProfile || "?"} for coding/tool work and ${options.autoGeneralProfile || "?"} for lightweight writing. If both fields are set, model profile wins.`;
+}
+
+function buildResolvedRuntimeHint(data) {
+  const mode = data.selectionMode || "unknown";
+  const reason = data.selectionReason || "No selection reason was returned.";
+  const fallback = data.fallbackUsed ? " Fallback was used during this turn." : "";
+  return `${mode}: ${reason}${fallback}`;
+}
+
+function abbreviateModel(model) {
+  if (!model) {
+    return "";
+  }
+  if (model.length <= 48) {
+    return model;
+  }
+  return `${model.slice(0, 22)}...${model.slice(-18)}`;
+}
+
+function createOption(value, label) {
+  const option = document.createElement("option");
+  option.value = value;
+  option.textContent = label;
+  return option;
+}
+
+function hasOption(select, value) {
+  return Array.from(select.options).some((option) => option.value === value);
+}
+
+async function requestJson(url, options = {}) {
+  const response = await fetch(url, options);
+  const contentType = response.headers.get("content-type") || "";
+  const isJson = contentType.includes("application/json");
+  const payload = isJson ? await response.json() : await response.text();
+
+  if (!response.ok) {
+    if (isJson && payload && typeof payload === "object") {
+      throw new Error(payload.error || payload.message || `Status ${response.status}`);
+    }
+    throw new Error(payload || `Status ${response.status}`);
+  }
+
+  return payload;
+}
+
+loadRuntimeOptions();
 refreshHealth();

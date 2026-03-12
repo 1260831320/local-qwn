@@ -7,6 +7,11 @@ public record ChatResponse(
         List<String> steps,
         List<String> toolsUsed,
         PendingPatch pendingPatch,
-        String backend
+        String backend,
+        String modelProfile,
+        String model,
+        String selectionMode,
+        String selectionReason,
+        boolean fallbackUsed
 ) {
 }

@@ -14,3 +14,15 @@ qwen:
     max-new-tokens: 180
     timeout-seconds: 180
     health-prompt: Reply with OK.
+  models:
+    auto-code-profile: ollama-coder
+    auto-general-profile: openvino-lite
+    default-profile-by-backend:
+      ollama: ollama-coder
+      openvino: openvino-lite
+    profiles:
+      openvino-lite:
+        backend: openvino
+        model: C:/Users/12608/models/qwen2.5-1.5b-instruct-int4-ov
+        display-name: OpenVINO Lite
+        description: Lightweight local writing profile on the NPU.

@@ -16,38 +16,58 @@ public class ModelBackendRouter {
 
     private final Map<String, ModelBackend> backends;
     private final BackendProperties properties;
+    private final ModelSelectionService modelSelectionService;
 
-    public ModelBackendRouter(List<ModelBackend> backends, BackendProperties properties) {
+    public ModelBackendRouter(
+            List<ModelBackend> backends,
+            BackendProperties properties,
+            ModelSelectionService modelSelectionService
+    ) {
         Map<String, ModelBackend> byName = new LinkedHashMap<>();
         for (ModelBackend backend : backends) {
             byName.put(normalize(backend.backendName()), backend);
         }
         this.backends = Map.copyOf(byName);
         this.properties = properties;
+        this.modelSelectionService = modelSelectionService;
     }
 
-    public ModelGeneration generate(String prompt) {
-        String primaryName = normalizedPrimaryBackend();
-        ModelBackend primary = requireConfiguredBackend(primaryName);
+    public ModelGeneration generate(String prompt, ResolvedModelSelection primarySelection) {
+        if (primarySelection == null) {
+            throw new IllegalArgumentException("Model selection must not be null.");
+        }
+        RuntimeException primaryFailure;
         try {
-            return new ModelGeneration(primary.backendName(), primary.generate(prompt), false);
-        } catch (RuntimeException primaryFailure) {
-            ModelBackend fallback = resolveConfiguredFallback(primaryName);
-            if (fallback == null) {
-                throw primaryFailure;
-            }
-            log.warn(
-                    "Backend '{}' failed, falling back to '{}': {}",
-                    primary.backendName(),
-                    fallback.backendName(),
-                    compactMessage(primaryFailure.getMessage())
-            );
-            try {
-                return new ModelGeneration(fallback.backendName(), fallback.generate(prompt), true);
-            } catch (RuntimeException fallbackFailure) {
-                fallbackFailure.addSuppressed(primaryFailure);
-                throw fallbackFailure;
-            }
+            ModelBackend primary = requireConfiguredBackend(primarySelection.backend());
+            String response = primary.generate(new BackendGenerationRequest(prompt, primarySelection.model()));
+            return new ModelGeneration(primarySelection, response, false);
+        } catch (RuntimeException ex) {
+            primaryFailure = ex;
+        }
+
+        ModelBackend fallback = resolveConfiguredFallback(primarySelection.backend());
+        if (fallback == null) {
+            throw primaryFailure;
+        }
+
+        ResolvedModelSelection fallbackSelection = modelSelectionService.resolveDefaultForBackend(
+                fallback.backendName(),
+                "fallback",
+                "Primary backend '" + primarySelection.backend() + "' failed. Falling back to backend '"
+                        + fallback.backendName() + "'."
+        );
+        log.warn(
+                "Backend '{}' failed, falling back to '{}': {}",
+                primarySelection.backend(),
+                fallback.backendName(),
+                compactMessage(primaryFailure.getMessage())
+        );
+        try {
+            String response = fallback.generate(new BackendGenerationRequest(prompt, fallbackSelection.model()));
+            return new ModelGeneration(fallbackSelection, response, true);
+        } catch (RuntimeException fallbackFailure) {
+            fallbackFailure.addSuppressed(primaryFailure);
+            throw fallbackFailure;
         }
     }
 

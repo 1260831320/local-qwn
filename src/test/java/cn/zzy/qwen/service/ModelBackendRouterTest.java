@@ -1,9 +1,11 @@
 package cn.zzy.qwen.service;
 
 import cn.zzy.qwen.config.BackendProperties;
+import cn.zzy.qwen.config.ModelCatalogProperties;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -17,14 +19,16 @@ class ModelBackendRouterTest {
                         new StubBackend("ollama", true, "ollama-ok", null),
                         new StubBackend("openvino", true, "openvino-ok", null)
                 ),
-                new BackendProperties("openvino", "")
+                new BackendProperties("openvino", ""),
+                selectionService()
         );
 
-        ModelGeneration generation = router.generate("hello");
+        ModelGeneration generation = router.generate("hello", selection("openvino", "openvino-lite", "ov-model"));
 
         assertThat(generation.backend()).isEqualTo("openvino");
         assertThat(generation.response()).isEqualTo("openvino-ok");
         assertThat(generation.fallbackUsed()).isFalse();
+        assertThat(generation.modelProfile()).isEqualTo("openvino-lite");
     }
 
     @Test
@@ -34,14 +38,17 @@ class ModelBackendRouterTest {
                         new StubBackend("openvino", true, null, new RuntimeException("npu offline")),
                         new StubBackend("ollama", true, "ollama-ok", null)
                 ),
-                new BackendProperties("openvino", "ollama")
+                new BackendProperties("openvino", "ollama"),
+                selectionService()
         );
 
-        ModelGeneration generation = router.generate("hello");
+        ModelGeneration generation = router.generate("hello", selection("openvino", "openvino-lite", "ov-model"));
 
         assertThat(generation.backend()).isEqualTo("ollama");
         assertThat(generation.response()).isEqualTo("ollama-ok");
         assertThat(generation.fallbackUsed()).isTrue();
+        assertThat(generation.modelProfile()).isEqualTo("ollama-coder");
+        assertThat(generation.model()).isEqualTo("qwen2.5-coder:14b");
     }
 
     @Test
@@ -51,12 +58,14 @@ class ModelBackendRouterTest {
                         new StubBackend("openvino", false, "unused", null),
                         new StubBackend("ollama", true, "ollama-ok", null)
                 ),
-                new BackendProperties("openvino", "ollama")
+                new BackendProperties("openvino", "ollama"),
+                selectionService()
         );
 
-        assertThatThrownBy(() -> router.generate("hello"))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("not fully configured");
+        ModelGeneration generation = router.generate("hello", selection("openvino", "openvino-lite", "ov-model"));
+
+        assertThat(generation.backend()).isEqualTo("ollama");
+        assertThat(generation.fallbackUsed()).isTrue();
     }
 
     @Test
@@ -66,7 +75,8 @@ class ModelBackendRouterTest {
                         new StubBackend("openvino", true, null, new RuntimeException("compile failed")),
                         new StubBackend("ollama", true, "ollama-ok", null)
                 ),
-                new BackendProperties("openvino", "ollama")
+                new BackendProperties("openvino", "ollama"),
+                selectionService()
         );
 
         BackendHealthReport report = router.healthReport();
@@ -97,7 +107,7 @@ class ModelBackendRouterTest {
         }
 
         @Override
-        public String generate(String prompt) {
+        public String generate(BackendGenerationRequest request) {
             if (failure != null) {
                 throw failure;
             }
@@ -115,5 +125,34 @@ class ModelBackendRouterTest {
         public boolean isConfigured() {
             return configured;
         }
+    }
+
+    private static ModelSelectionService selectionService() {
+        return new ModelSelectionService(new ModelCatalogProperties(
+                "ollama-coder",
+                "openvino-lite",
+                Map.of(
+                        "ollama", "ollama-coder",
+                        "openvino", "openvino-lite"
+                ),
+                Map.of(
+                        "ollama-coder", new ModelCatalogProperties.ModelProfileProperties(
+                                "ollama",
+                                "qwen2.5-coder:14b",
+                                "Ollama Coder",
+                                "Coding profile"
+                        ),
+                        "openvino-lite", new ModelCatalogProperties.ModelProfileProperties(
+                                "openvino",
+                                "ov-model",
+                                "OpenVINO Lite",
+                                "Writing profile"
+                        )
+                )
+        ));
+    }
+
+    private static ResolvedModelSelection selection(String backend, String profile, String model) {
+        return new ResolvedModelSelection(backend, model, profile, "profile", "test");
     }
 }

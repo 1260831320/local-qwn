@@ -34,12 +34,15 @@ public class OllamaClient implements ModelBackend {
     }
 
     @Override
-    public String generate(String prompt) {
+    public String generate(BackendGenerationRequest request) {
         validateConfigured();
+        String model = request.model() == null || request.model().isBlank()
+                ? properties.model()
+                : request.model().trim();
         OllamaGenerateResponse response = restClient.post()
                 .uri("/api/generate")
                 .contentType(MediaType.APPLICATION_JSON)
-                .body(new OllamaGenerateRequest(properties.model(), prompt, false))
+                .body(new OllamaGenerateRequest(model, request.prompt(), false))
                 .retrieve()
                 .body(OllamaGenerateResponse.class);
         return response == null || response.response() == null ? "" : response.response().trim();

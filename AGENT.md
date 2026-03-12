@@ -168,11 +168,11 @@ It is useful for a single running process but not persistent across restarts.
 2. Add RAG over local notes and project docs.
 3. Add authentication if the app is exposed beyond localhost.
 4. Add streaming responses in the frontend.
-5. Add request-level backend selection rules after more device validation.
+5. Refine request-level backend selection after another machine profile is validated.
 6. Candidate policy for later:
    - code-heavy and tool-planning requests prefer `ollama`
    - lightweight writing / office tasks can prefer `openvino`
-   - keep this disabled until another machine profile is validated
+   - keep refining this after another machine profile is validated
 
 ### Later
 
@@ -196,7 +196,23 @@ It is useful for a single running process but not persistent across restarts.
 - The current OpenVINO path is validated only for local process execution through:
   - `C:/Users/12608/openvino-ai/run_genai.py`
 - The current OpenVINO model is suitable for lightweight writing tasks, not a full replacement for the coding-oriented Ollama model.
+- Request payloads can now optionally choose:
+  - `backend`
+  - `modelProfile`
+- Selection priority is now:
+  - explicit `modelProfile`
+  - explicit `backend`
+  - auto heuristic based on request type
 - When a task is completed, refresh this file so completed items are removed and new workflow/project facts are recorded.
+
+## Branch Strategy
+
+- Keep only `master` and `develop` as long-lived branches.
+- Do not create long-lived branches per device.
+- Create short-lived branches per task, for example `feature/request-backend-selection`.
+- If the same task moves between multiple devices, keep using the same `feature/<task>` branch on both devices.
+- If two devices work on different tasks at the same time, each task gets its own feature branch from `develop`.
+- Merge finished feature branches back into `develop`, then promote stable integrated work from `develop` into `master`.
 
 ## How To Run
 
@@ -242,4 +258,4 @@ If memory is working, the assistant should keep context across those turns.
 
 When continuing work on this project, the next best step is:
 
-"Persist conversation state and pending patches across restarts, then replace the current text-based pending patch payload with a structured preview model. After another machine profile is validated, revisit request-level backend routing instead of relying only on machine-level backend selection and fallback."
+"Persist conversation state and pending patches across restarts, then replace the current text-based pending patch payload with a structured preview model. After another machine profile is validated, refine the current request-level backend routing and task-based model selection rules."
