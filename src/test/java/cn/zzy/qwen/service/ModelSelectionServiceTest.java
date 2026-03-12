@@ -61,8 +61,30 @@ class ModelSelectionServiceTest {
     }
 
     @Test
+    void autoGenericChineseWritingSelectionUsesGeneralProfile() {
+        ResolvedModelSelection selection = service.select(
+                "\u8bf7\u5199\u4e00\u53e5\u7b80\u77ed\u7684\u4e2d\u6587\u95ee\u5019\uff0c\u4e0d\u8981\u8c03\u7528\u5de5\u5177\u3002",
+                null,
+                null
+        );
+
+        assertThat(selection.backend()).isEqualTo("openvino");
+        assertThat(selection.modelProfile()).isEqualTo("openvino-lite");
+        assertThat(selection.selectionMode()).isEqualTo("auto");
+    }
+
+    @Test
     void autoCodingSelectionUsesCodeProfile() {
         ResolvedModelSelection selection = service.select("Read pom.xml and fix the Java bug.", null, null);
+
+        assertThat(selection.backend()).isEqualTo("ollama");
+        assertThat(selection.modelProfile()).isEqualTo("ollama-coder");
+        assertThat(selection.selectionMode()).isEqualTo("auto");
+    }
+
+    @Test
+    void autoCodeSelectionWinsWhenWriteTargetsJavaImplementation() {
+        ResolvedModelSelection selection = service.select("Write a Java method and add a unit test.", null, null);
 
         assertThat(selection.backend()).isEqualTo("ollama");
         assertThat(selection.modelProfile()).isEqualTo("ollama-coder");

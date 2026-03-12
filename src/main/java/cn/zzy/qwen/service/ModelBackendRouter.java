@@ -45,30 +45,35 @@ public class ModelBackendRouter {
             primaryFailure = ex;
         }
 
-        ModelBackend fallback = resolveConfiguredFallback(primarySelection.backend());
-        if (fallback == null) {
-            throw primaryFailure;
+        RuntimeException latestFailure = primaryFailure;
+        for (String candidateBackend : fallbackCandidates(primarySelection.backend())) {
+            ModelBackend fallback = resolveConfiguredBackend(candidateBackend);
+            if (fallback == null) {
+                continue;
+            }
+
+            ResolvedModelSelection fallbackSelection = modelSelectionService.resolveDefaultForBackend(
+                    fallback.backendName(),
+                    "fallback",
+                    "Primary backend '" + primarySelection.backend() + "' failed. Falling back to backend '"
+                            + fallback.backendName() + "'."
+            );
+            log.warn(
+                    "Backend '{}' failed, falling back to '{}': {}",
+                    primarySelection.backend(),
+                    fallback.backendName(),
+                    compactMessage(latestFailure.getMessage())
+            );
+            try {
+                String response = fallback.generate(new BackendGenerationRequest(prompt, fallbackSelection.model()));
+                return new ModelGeneration(fallbackSelection, response, true);
+            } catch (RuntimeException fallbackFailure) {
+                fallbackFailure.addSuppressed(latestFailure);
+                latestFailure = fallbackFailure;
+            }
         }
 
-        ResolvedModelSelection fallbackSelection = modelSelectionService.resolveDefaultForBackend(
-                fallback.backendName(),
-                "fallback",
-                "Primary backend '" + primarySelection.backend() + "' failed. Falling back to backend '"
-                        + fallback.backendName() + "'."
-        );
-        log.warn(
-                "Backend '{}' failed, falling back to '{}': {}",
-                primarySelection.backend(),
-                fallback.backendName(),
-                compactMessage(primaryFailure.getMessage())
-        );
-        try {
-            String response = fallback.generate(new BackendGenerationRequest(prompt, fallbackSelection.model()));
-            return new ModelGeneration(fallbackSelection, response, true);
-        } catch (RuntimeException fallbackFailure) {
-            fallbackFailure.addSuppressed(primaryFailure);
-            throw fallbackFailure;
-        }
+        throw latestFailure;
     }
 
     public BackendHealthReport healthReport() {
@@ -138,16 +143,25 @@ public class ModelBackendRouter {
         return backend;
     }
 
-    private ModelBackend resolveConfiguredFallback(String primaryBackend) {
-        String fallback = normalizedFallbackBackend(primaryBackend);
-        if (fallback == null) {
-            return null;
-        }
-        ModelBackend backend = backends.get(fallback);
+    private ModelBackend resolveConfiguredBackend(String backendName) {
+        ModelBackend backend = backends.get(backendName);
         if (backend == null || !backend.isConfigured()) {
             return null;
         }
         return backend;
+    }
+
+    private List<String> fallbackCandidates(String primaryBackend) {
+        LinkedHashSet<String> candidates = new LinkedHashSet<>();
+        String configuredFallback = normalizedFallbackBackend(primaryBackend);
+        if (configuredFallback != null) {
+            candidates.add(configuredFallback);
+        }
+        String configuredPrimary = normalizedPrimaryBackend();
+        if (!configuredPrimary.equals(primaryBackend)) {
+            candidates.add(configuredPrimary);
+        }
+        return List.copyOf(candidates);
     }
 
     private String normalizedPrimaryBackend() {

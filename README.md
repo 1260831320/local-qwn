@@ -1,29 +1,51 @@
 # local-qwn
 
-`local-qwn` 是一个基于 Java 17、Spring Boot 3 和 Ollama 的本地 Qwen Agent 项目。
+`local-qwn` 是一个面向本地研发联调场景的 Qwen Agent 项目。
 
-它的目标不是做一个“完全放开权限”的自动化代理，而是先构建一层可控、可审计、可逐步扩展的本地执行边界，包括：
+它基于 `Java 17 + Spring Boot 3`，提供受控工具边界、可切换模型后端、会话上下文和补丁确认流程。目标不是做一个完全放开的自治代理，而是先把本地模型接入、文件操作和请求路由做成可审计、可演进的工程底座。
 
-- 聊天接口
-- 受控文件工具
-- patch 预览与确认应用
-- 健康检查与前端可视化
-- 会话记忆与工具执行轨迹
+## 当前能力
 
-## 核心能力
+- 聊天接口：`POST /api/chat`
+  - 支持会话上下文
+  - 支持 request 级后端选择
+  - 支持 request 级模型档位选择
+- 运行时状态接口：`GET /api/health`
+  - 展示 Spring Boot、Ollama、OpenVINO 的可达性
+  - 展示当前机器档案与主后端
+- 运行时选项接口：`GET /api/runtime/options`
+  - 返回可用后端、模型档位与自动路由信息
+- 文档接口：`GET /api/docs/{lang}`
+  - 直接读取仓库中的双语 README
+- 补丁确认接口：`POST /api/patch/apply`
+  - 只允许应用当前会话里已经预览过的补丁
+- 会话清理接口：`POST /api/session/{sessionId}/clear`
+- 浏览器端工作台
+  - 欢迎页
+  - 聊天页
+  - 文档页
+  - 工具链路、补丁预览、补丁记录、健康状态面板
 
-- `POST /api/chat`
-  - 通过受限多步 agent loop 调用本地 Ollama 模型
-- `GET /api/health`
-  - 检查 Spring Boot 进程与 Ollama 可达性
-- `POST /api/patch/apply`
-  - 只允许应用当前会话里已预览的 pending patch
-- `POST /api/session/{sessionId}/clear`
-  - 清理当前会话上下文与待确认 patch
-- 浏览器前端
-  - 聊天面板、工具轨迹、健康状态、patch 预览与确认历史
+## 模型与路由
 
-当前已注册工具：
+当前项目支持两类后端：
+
+- `ollama`
+- `openvino`
+
+请求路由优先级：
+
+1. 显式 `modelProfile`
+2. 显式 `backend`
+3. 自动判断请求类型
+
+自动判断的基本策略：
+
+- 编码、调试、工具规划类请求优先走编码档位
+- 轻量写作、整理、翻译类请求优先走轻量档位
+- 当目标后端不可用时，会尝试回退到可配置的备用后端
+
+## 已注册工具
 
 - `list_files`
 - `read_file`
@@ -35,55 +57,26 @@
 
 ## 安全边界
 
-这个项目当前刻意保持保守。
+当前实现刻意保持保守：
 
-- 所有文件操作都限制在配置的工作区根目录下
-- `patch_file` 必须先有同一轮、同参数的 `preview_patch_file`
-- `write_file` 只允许创建新文件，不允许直接覆盖已有文件
-- 读取、搜索和 patch 都有文件大小、目录遍历、输出截断等保护
+- 所有文件操作都限制在配置好的工作区根目录内
+- `write_file` 仅允许创建新文件，不允许直接覆盖现有文件
+- `patch_file` 必须先有同轮、同参数的 `preview_patch_file`
+- 搜索、读取、补丁预览都带有限流、截断和路径校验
 - 当前没有开放原始 shell 执行
 
-## 系统结构
-
-整体结构可以概括为：
-
-`Browser UI -> Spring Boot API -> Agent Loop -> Tool Registry -> Workspace / Ollama`
-
-主要模块：
+## 目录说明
 
 - `src/main/java/cn/zzy/qwen/controller`
-  - REST API 入口
+  - HTTP API 入口
 - `src/main/java/cn/zzy/qwen/service`
-  - Agent 编排、Ollama 调用、健康检查、会话与 patch 状态
+  - Agent 编排、后端调用、健康检查、会话状态、文档读取
 - `src/main/java/cn/zzy/qwen/tools`
-  - 受控文件工具与工作区边界
+  - 受控工具与工作区边界
 - `src/main/resources/static`
   - 前端页面、样式和交互逻辑
-
-## 环境要求
-
-- Java 17
-- Ollama
-- 已拉取本地模型，例如：
-
-```bash
-ollama pull qwen2.5-coder:14b
-```
-
-## 配置
-
-默认配置位于：
-
-- `src/main/resources/application.yml`
-
-关键配置项：
-
-- `qwen.ollama.base-url`
-- `qwen.ollama.model`
-- `qwen.ollama.timeout-seconds`
-- `qwen.tools.workspace-root`
-
-如果项目目录发生变化，请同步更新 `workspace-root`。
+- `src/main/resources/machines`
+  - 机器档案与运行时覆盖配置
 
 ## 快速启动
 
@@ -99,25 +92,65 @@ ollama pull qwen2.5-coder:14b
 ./mvnw spring-boot:run
 ```
 
-启动后访问：
+启动后：
 
-- 前端页面：`http://localhost:8080`
+- 工作台：`http://localhost:8080`
 - 健康检查：`http://localhost:8080/api/health`
+- 文档接口：`http://localhost:8080/api/docs/zh`
 
-## 接口示例
+## 运行前准备
 
-### 发送聊天请求
+- Java 17
+- 本地可用的模型后端
+  - Ollama：建议至少准备 `qwen2.5-coder:14b`
+  - OpenVINO：建议准备已验证的轻量模型和 Python 入口脚本
+
+示例：
+
+```bash
+ollama pull qwen2.5-coder:14b
+```
+
+## 配置说明
+
+项目支持共享配置和机器档案配置：
+
+- `src/main/resources/application.yml`
+- `src/main/resources/machines/common.yml`
+- `src/main/resources/machines/default.yml`
+- `src/main/resources/machines/<profile>.yml`
+
+常用配置项：
+
+- `qwen.backend.type`
+- `qwen.backend.fallback-type`
+- `qwen.ollama.base-url`
+- `qwen.ollama.model`
+- `qwen.openvino.python-exe`
+- `qwen.openvino.script-path`
+- `qwen.openvino.model-dir`
+- `qwen.tools.workspace-root`
+
+## 常用接口示例
+
+### 聊天请求
 
 ```bash
 curl -X POST http://localhost:8080/api/chat ^
   -H "Content-Type: application/json" ^
-  -d "{\"message\":\"read pom.xml\",\"sessionId\":\"demo\"}"
+  -d "{\"message\":\"read pom.xml\",\"sessionId\":\"demo\",\"backend\":\"auto\",\"modelProfile\":\"auto\"}"
 ```
 
-### 健康检查
+### 获取运行时选项
 
 ```bash
-curl http://localhost:8080/api/health
+curl http://localhost:8080/api/runtime/options
+```
+
+### 获取中文文档
+
+```bash
+curl http://localhost:8080/api/docs/zh
 ```
 
 ## 测试
@@ -134,35 +167,28 @@ curl http://localhost:8080/api/health
 ./mvnw test
 ```
 
-## 分支策略
+## 分支协作
 
-当前仓库采用下面的协作方式：
+推荐协作方式：
 
 - `master`
   - 稳定发布分支
 - `develop`
-  - 日常开发与多终端同步分支
+  - 日常集成分支
+- `feature/<task>`
+  - 短期任务分支
 
 建议流程：
 
-1. 新修改先进入 `develop`
-2. 多终端在 `develop` 上同步和对齐
-3. 功能稳定后再合并到 `master`
+1. 新功能先从 `develop` 切出任务分支
+2. 在任务分支完成开发和联调
+3. 合并回 `develop`
+4. 稳定后再进入 `master`
 
-## 当前改进方向
+## 当前重点方向
 
 - 持久化会话历史与 pending patch
-- 把 patch 预览协议从纯文本升级为结构化 diff 数据
-- 增加更强的项目摘要 / code map 能力
-- 后续再考虑白名单 shell、RAG 与流式输出
+- 把补丁预览从文本协议升级为结构化 diff
+- 增强欢迎页、文档页和聊天页的一体化体验
+- 继续优化 request 级模型路由与跨后端回退策略
 
-## 贡献
-
-欢迎在 `develop` 分支基础上继续迭代这个项目。
-
-如果你准备提交改动，建议附带：
-
-- 变更说明
-- 关键接口影响
-- 测试结果
-- 是否涉及安全边界调整

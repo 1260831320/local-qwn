@@ -52,6 +52,26 @@ class ModelBackendRouterTest {
     }
 
     @Test
+    void fallsBackToConfiguredPrimaryWhenRequestedBackendFails() {
+        ModelBackendRouter router = new ModelBackendRouter(
+                List.of(
+                        new StubBackend("openvino", true, "openvino-ok", null),
+                        new StubBackend("ollama", true, null, new RuntimeException("ollama offline"))
+                ),
+                new BackendProperties("openvino", "ollama"),
+                selectionService()
+        );
+
+        ModelGeneration generation = router.generate("hello", selection("ollama", "ollama-coder", "qwen2.5-coder:14b"));
+
+        assertThat(generation.backend()).isEqualTo("openvino");
+        assertThat(generation.response()).isEqualTo("openvino-ok");
+        assertThat(generation.fallbackUsed()).isTrue();
+        assertThat(generation.modelProfile()).isEqualTo("openvino-lite");
+        assertThat(generation.model()).isEqualTo("ov-model");
+    }
+
+    @Test
     void failsWhenPrimaryIsNotConfigured() {
         ModelBackendRouter router = new ModelBackendRouter(
                 List.of(

@@ -2,12 +2,14 @@ package cn.zzy.qwen.controller;
 
 import cn.zzy.qwen.model.ChatRequest;
 import cn.zzy.qwen.model.ChatResponse;
+import cn.zzy.qwen.model.DocsResponse;
 import cn.zzy.qwen.model.HealthResponse;
 import cn.zzy.qwen.model.PendingPatch;
 import cn.zzy.qwen.model.PatchApplyResponse;
 import cn.zzy.qwen.model.RuntimeOptionsResponse;
 import cn.zzy.qwen.service.AgentService;
 import cn.zzy.qwen.service.HealthService;
+import cn.zzy.qwen.service.ProjectDocsService;
 import cn.zzy.qwen.service.RuntimeOptionsService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -41,6 +43,9 @@ class ChatControllerTest {
 
     @MockBean
     private RuntimeOptionsService runtimeOptionsService;
+
+    @MockBean
+    private ProjectDocsService projectDocsService;
 
     @Test
     void healthReturnsServicePayload() throws Exception {
@@ -130,6 +135,17 @@ class ChatControllerTest {
                 .andExpect(jsonPath("$.configuredBackend").value("openvino"))
                 .andExpect(jsonPath("$.configuredFallbackBackend").value("ollama"))
                 .andExpect(jsonPath("$.autoGeneralProfile").value("openvino-lite"));
+    }
+
+    @Test
+    void docsReturnsReadmePayload() throws Exception {
+        when(projectDocsService.readme("zh")).thenReturn(new DocsResponse("zh", "项目说明", "# Hello"));
+
+        mockMvc.perform(get("/api/docs/zh"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.language").value("zh"))
+                .andExpect(jsonPath("$.title").value("项目说明"))
+                .andExpect(jsonPath("$.content").value("# Hello"));
     }
 
     @Test

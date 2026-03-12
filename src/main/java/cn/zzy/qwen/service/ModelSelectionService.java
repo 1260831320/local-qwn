@@ -15,15 +15,22 @@ import java.util.Set;
 public class ModelSelectionService {
     private static final Set<String> WRITING_KEYWORDS = Set.of(
             "email", "notice", "meeting", "summary", "summarize", "rewrite", "polish", "translate", "translation",
-            "draft", "copywriting", "announcement",
+            "draft", "copywriting", "announcement", "write", "reply", "respond", "greeting", "message",
             "\u5199\u90ae\u4ef6", "\u90ae\u4ef6", "\u4f1a\u8bae\u901a\u77e5", "\u603b\u7ed3", "\u6458\u8981",
-            "\u6da6\u8272", "\u6539\u5199", "\u7ffb\u8bd1", "\u901a\u77e5", "\u6587\u6848"
+            "\u6da6\u8272", "\u6539\u5199", "\u7ffb\u8bd1", "\u901a\u77e5", "\u6587\u6848",
+            "\u5199", "\u56de\u590d", "\u56de\u4fe1", "\u95ee\u5019"
     );
     private static final Set<String> CODING_KEYWORDS = Set.of(
             "code", "coding", "debug", "bug", "fix", "patch", "tool", "java", "spring", "pom.xml", "stacktrace",
-            "read_file", "patch_file", "preview_patch_file", ".java", ".yml",
+            "read_file", "patch_file", "preview_patch_file", ".java", ".yml", "class", "method", "controller",
+            "service", "test", "refactor", "api",
             "\u4ee3\u7801", "\u8c03\u8bd5", "\u62a5\u9519", "\u4fee\u590d", "\u8865\u4e01", "\u5de5\u5177",
-            "\u8bfb\u53d6\u6587\u4ef6"
+            "\u8bfb\u53d6\u6587\u4ef6", "\u65b9\u6cd5", "\u7c7b", "\u63a5\u53e3", "\u6d4b\u8bd5"
+    );
+    private static final Set<String> TOOL_NEGATION_PATTERNS = Set.of(
+            "don't call tools", "dont call tools", "don't use tools", "dont use tools", "without tools",
+            "\u4e0d\u8981\u8c03\u7528\u5de5\u5177", "\u4e0d\u8981\u7528\u5de5\u5177", "\u4e0d\u7528\u5de5\u5177",
+            "\u4e0d\u8981\u4f7f\u7528\u5de5\u5177"
     );
 
     private final ModelCatalogProperties properties;
@@ -132,13 +139,13 @@ public class ModelSelectionService {
     }
 
     private boolean looksLikeWritingTask(String userMessage) {
-        String normalized = normalizeMessage(userMessage);
+        String normalized = stripToolNegations(normalizeMessage(userMessage));
         if (normalized.isBlank()) {
             return false;
         }
-        boolean hasWritingKeyword = WRITING_KEYWORDS.stream().anyMatch(normalized::contains);
-        boolean hasCodingKeyword = CODING_KEYWORDS.stream().anyMatch(normalized::contains);
-        return hasWritingKeyword && !hasCodingKeyword;
+        int writingScore = scoreMatches(normalized, WRITING_KEYWORDS);
+        int codingScore = scoreMatches(normalized, CODING_KEYWORDS);
+        return writingScore > 0 && writingScore > codingScore;
     }
 
     private String normalizeMessage(String userMessage) {
@@ -151,6 +158,24 @@ public class ModelSelectionService {
                 .filter(value -> value != null && !value.isBlank())
                 .findFirst()
                 .orElse("ollama");
+    }
+
+    private int scoreMatches(String normalizedMessage, Set<String> keywords) {
+        int score = 0;
+        for (String keyword : keywords) {
+            if (normalizedMessage.contains(keyword)) {
+                score++;
+            }
+        }
+        return score;
+    }
+
+    private String stripToolNegations(String normalizedMessage) {
+        String sanitized = normalizedMessage;
+        for (String pattern : TOOL_NEGATION_PATTERNS) {
+            sanitized = sanitized.replace(pattern, " ");
+        }
+        return sanitized;
     }
 
     private String requiredBackend(String backend) {

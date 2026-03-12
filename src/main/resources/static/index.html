@@ -3,130 +3,502 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Qwen Control Panel</title>
+  <title>Qwen 本地工作台</title>
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
-<div class="app-shell">
-  <aside class="sidebar">
-    <div class="brand">
-      <p class="eyebrow">LOCAL AGENT</p>
-      <h1>Qwen Control Panel</h1>
-      <p class="muted">A local agent workspace with controlled tools, pluggable backends, and request-level model routing.</p>
+<div class="shell">
+  <header class="topbar panel">
+    <div class="topbar-brand">
+      <div class="brand-mark">Q</div>
+      <div>
+        <p class="eyebrow">LOCAL AGENT WORKSPACE</p>
+        <h1>Qwen 本地工作台</h1>
+      </div>
     </div>
 
-    <section class="status-card">
-      <div class="status-row">
-        <span>Machine</span>
-        <strong id="machineProfileValue">loading</strong>
+    <nav class="topbar-nav" aria-label="主导航" role="tablist">
+      <button type="button" class="nav-tab active" data-view-target="welcome" aria-controls="welcomeView" aria-selected="true">欢迎</button>
+      <button type="button" class="nav-tab" data-view-target="chat" aria-controls="chatView" aria-selected="false">聊天</button>
+      <button type="button" class="nav-tab" data-view-target="docs" aria-controls="docsView" aria-selected="false">文档</button>
+    </nav>
+
+    <div class="topbar-actions">
+      <div id="topHealthBadge" class="top-health idle" title="等待健康检查">未检查</div>
+      <button type="button" id="topHealthBtn" class="ghost-btn small">健康检查</button>
+      <button type="button" id="topNewSessionBtn" class="ghost-btn small">新会话</button>
+    </div>
+  </header>
+
+  <section class="panel context-strip" aria-label="当前工作台状态">
+    <div class="context-item">
+      <span>当前视图</span>
+      <strong id="contextViewValue">欢迎页</strong>
+    </div>
+    <div class="context-item">
+      <span>会话</span>
+      <strong id="contextSessionValue">准备中</strong>
+    </div>
+    <div class="context-item">
+      <span>请求偏好</span>
+      <strong id="contextRouteValue">后端自动 · 档位自动</strong>
+    </div>
+    <div class="context-item">
+      <span>执行链路</span>
+      <strong id="contextTraceValue">暂无请求</strong>
+    </div>
+    <div class="context-item">
+      <span>文档状态</span>
+      <strong id="contextDocsValue">README 未加载</strong>
+    </div>
+    <div class="context-item">
+      <span>补丁状态</span>
+      <strong id="contextPatchValue">无待确认补丁</strong>
+    </div>
+  </section>
+
+  <main class="view-stack">
+    <section id="welcomeView" class="page-view">
+      <div class="welcome-layout">
+        <section class="panel hero-panel">
+          <p class="eyebrow">默认入口</p>
+          <h2>先看清本地现场，再决定聊天还是翻文档。</h2>
+          <p class="hero-copy">
+            这个工作台把模型路由、健康状态、README 文档和补丁确认流放在同一套界面里。
+            每次进入都先落到欢迎页，适合先确认机器状态，再开始联调。
+          </p>
+          <div class="hero-actions">
+            <button type="button" id="enterChatBtn" class="primary-btn large">开始聊天</button>
+            <button type="button" id="showDocsBtn" class="ghost-btn large">展示文档</button>
+          </div>
+          <div class="chip-row">
+            <span class="mini-chip">中文优先</span>
+            <span class="mini-chip">README 直连</span>
+            <span class="mini-chip">受控工具边界</span>
+          </div>
+          <div class="welcome-note">
+            <strong>推荐路径</strong>
+            <p>先做一次健康检查，再根据需要进入聊天联调或直接查看双语 README。</p>
+          </div>
+          <div class="hero-handoff">
+            <div class="hero-handoff-heading">
+              <strong>接力点</strong>
+              <p>把欢迎页、文档页和聊天页串成一次完整联调路径，而不是来回跳页。</p>
+            </div>
+            <div class="hero-handoff-grid">
+              <article class="handoff-card">
+                <span>01</span>
+                <div>
+                  <strong>先确认现场</strong>
+                  <p>优先看健康检查、机器档案和主后端，避免对运行环境产生误判。</p>
+                </div>
+              </article>
+              <article class="handoff-card">
+                <span>02</span>
+                <div>
+                  <strong>再过 README</strong>
+                  <p>需要项目全貌时，先读仓库里的 README，再决定是不是直接发起联调请求。</p>
+                </div>
+              </article>
+              <article class="handoff-card">
+                <span>03</span>
+                <div>
+                  <strong>最后进聊天</strong>
+                  <p>进入聊天页后，再结合工具链路、trace 和补丁确认推进修改。</p>
+                </div>
+              </article>
+            </div>
+          </div>
+        </section>
+
+        <aside class="panel spotlight-panel">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">运行摘要</p>
+              <h3>当前默认配置</h3>
+            </div>
+          </div>
+          <div class="status-list">
+            <div class="status-row">
+              <span>机器档案</span>
+              <strong id="welcomeMachineValue">读取中</strong>
+            </div>
+            <div class="status-row">
+              <span>默认主后端</span>
+              <strong id="welcomeBackendValue">读取中</strong>
+            </div>
+            <div class="status-row">
+              <span>自动代码档</span>
+              <strong id="welcomeCodeProfileValue">读取中</strong>
+            </div>
+            <div class="status-row">
+              <span>自动轻写作</span>
+              <strong id="welcomeGeneralProfileValue">读取中</strong>
+            </div>
+          </div>
+          <p id="welcomeRuntimeHint" class="section-note">正在读取运行时选项...</p>
+        </aside>
       </div>
-      <div class="status-row">
-        <span>Backend</span>
-        <strong id="runtimeBackendValue">loading</strong>
-      </div>
-      <div class="status-row">
-        <span>Model</span>
-        <strong id="runtimeModelValue">loading</strong>
-      </div>
-      <div class="status-row">
-        <span>Fallback</span>
-        <strong id="runtimeFallbackValue">loading</strong>
+
+      <div class="overview-grid">
+        <section class="panel overview-panel">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">健康状态</p>
+              <h3>本地服务概览</h3>
+            </div>
+            <span id="welcomeHealthBadge" class="soft-badge idle">未检查</span>
+          </div>
+          <p id="welcomeHealthSummary" class="section-note">这里会显示 Spring Boot、主后端和两个推理通道的连通性。</p>
+          <div class="info-grid compact">
+            <div class="info-item">
+              <span>应用</span>
+              <strong id="welcomeSpringValue">未检查</strong>
+            </div>
+            <div class="info-item">
+              <span>生效后端</span>
+              <strong id="welcomeHealthBackendValue">未检查</strong>
+            </div>
+            <div class="info-item">
+              <span>Ollama</span>
+              <strong id="welcomeOllamaValue">未检查</strong>
+            </div>
+            <div class="info-item">
+              <span>OpenVINO</span>
+              <strong id="welcomeOpenvinoValue">未检查</strong>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel overview-panel">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">文档中心</p>
+              <h3>README 直接展示</h3>
+            </div>
+          </div>
+          <p class="section-note">
+            文档页直接读取仓库里的 <code>README.md</code> 和 <code>README.en.md</code>，
+            不再维护一份割裂的说明副本。
+          </p>
+          <div class="info-grid single">
+            <div class="info-item">
+              <span>中文 / English</span>
+              <strong>一键切换</strong>
+            </div>
+            <div class="info-item">
+              <span>内容来源</span>
+              <strong>仓库 README</strong>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel overview-panel">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">操作建议</p>
+              <h3>接力检查清单</h3>
+            </div>
+          </div>
+          <ol class="step-list">
+            <li>先看健康概览，确认当前主后端和回退链路是否可用。</li>
+            <li>需要了解项目结构时，先去文档页看 README，再进入聊天页。</li>
+            <li>需要改代码时，在聊天页里走补丁预览和确认流。</li>
+          </ol>
+        </section>
       </div>
     </section>
 
-    <section class="sidebar-block">
-      <h2>Suggested Tasks</h2>
-      <button class="suggestion" data-message="Please list the top-level project files and summarize the current capabilities. Reply in Chinese.">Project overview</button>
-      <button class="suggestion" data-message="Please read pom.xml and explain the current architecture in Chinese.">Explain architecture</button>
-      <button class="suggestion" data-message="Please review the runtime configuration and explain which backend is likely to be used. Reply in Chinese.">Review runtime config</button>
-      <button class="suggestion" data-message="Please create TODO.md with the next three backend improvements. Reply in Chinese.">Create next TODO</button>
-    </section>
-  </aside>
-
-  <main class="workspace">
-    <header class="workspace-header">
-      <div>
-        <p class="eyebrow">CHAT PANEL</p>
-        <h2>Collaborate with local Qwen</h2>
-      </div>
-      <div class="header-actions">
-        <button id="newSessionBtn" class="ghost-btn">New session</button>
-        <button id="healthBtn" class="ghost-btn">Check health</button>
-        <span id="healthStatus" class="health-pill idle">NOT CHECKED</span>
-      </div>
-    </header>
-
-    <section class="runtime-controls">
-      <div class="runtime-controls-header">
+    <section id="chatView" class="page-view hidden">
+      <section class="page-heading">
         <div>
-          <p class="eyebrow">REQUEST ROUTING</p>
-          <h3>Backend and model selection</h3>
+          <p class="eyebrow">会话工作台</p>
+          <h2>开始本地联调</h2>
+          <p class="section-note">中文优先，重点展示后端选择、自动回退、工具链路和补丁确认。</p>
+        </div>
+      </section>
+
+      <div class="chat-layout">
+        <aside class="column column-side">
+          <section class="panel status-card">
+            <div class="panel-heading">
+              <div>
+                <p class="eyebrow">运行摘要</p>
+                <h3>本轮请求视角</h3>
+              </div>
+            </div>
+            <div class="status-list">
+              <div class="status-row">
+                <span>机器档案</span>
+                <strong id="machineProfileValue">读取中</strong>
+              </div>
+              <div class="status-row">
+                <span>生效后端</span>
+                <strong id="runtimeBackendValue">读取中</strong>
+              </div>
+              <div class="status-row">
+                <span>当前档位</span>
+                <strong id="runtimeModelValue">读取中</strong>
+              </div>
+              <div class="status-row">
+                <span>回退链路</span>
+                <strong id="runtimeFallbackValue">读取中</strong>
+              </div>
+            </div>
+            <details class="detail-toggle" id="modelDetails">
+              <summary>展开模型详情</summary>
+              <div class="detail-grid">
+                <div class="info-item">
+                  <span>档位别名</span>
+                  <strong id="runtimeModelProfileValue">读取中</strong>
+                </div>
+                <div class="info-item">
+                  <span>后端</span>
+                  <strong id="runtimeModelBackendValue">读取中</strong>
+                </div>
+                <div class="info-item wide">
+                  <span>完整模型标识</span>
+                  <code id="runtimeModelFullValue">读取中</code>
+                </div>
+              </div>
+            </details>
+          </section>
+
+          <section class="panel runtime-controls">
+            <div class="panel-heading">
+              <div>
+                <p class="eyebrow">请求路由</p>
+                <h3>本轮请求偏好</h3>
+              </div>
+            </div>
+            <p class="section-note">手动指定模型档位时优先级高于后端；保留为自动时由内容分类决定。</p>
+            <div class="control-grid">
+              <label class="control-field" for="backendSelect">
+                <span>后端</span>
+                <select id="backendSelect">
+                  <option value="auto">自动</option>
+                </select>
+              </label>
+              <label class="control-field" for="modelProfileSelect">
+                <span>模型档位</span>
+                <select id="modelProfileSelect">
+                  <option value="auto">自动</option>
+                </select>
+              </label>
+            </div>
+            <p id="runtimeHint" class="runtime-hint">正在读取运行时选项...</p>
+          </section>
+
+          <section class="panel suggestions-panel">
+            <div class="panel-heading">
+              <div>
+                <p class="eyebrow">联调入口</p>
+                <h3>快捷提问</h3>
+              </div>
+            </div>
+            <div class="suggestion-list">
+              <button type="button" class="suggestion" data-message="请列出项目根目录的关键文件，并用中文总结当前能力。">项目概览</button>
+              <button type="button" class="suggestion" data-message="请读取 pom.xml，并用中文解释当前架构。">解释架构</button>
+              <button type="button" class="suggestion" data-message="请检查运行时配置，并用中文说明这次请求大概率会走哪个后端。">检查运行时</button>
+              <button type="button" class="suggestion" data-message="请帮我生成接下来三项后端优化建议，写入 TODO.md 之前先给中文草案。">生成下一步 TODO</button>
+            </div>
+          </section>
+
+          <section id="patchHistoryPanel" class="panel patch-history hidden">
+            <div class="panel-heading">
+              <div>
+                <p class="eyebrow">补丁记录</p>
+                <h3>最近一次应用结果</h3>
+              </div>
+            </div>
+            <div id="patchHistoryList" class="patch-history-list"></div>
+          </section>
+        </aside>
+
+        <div class="column column-main">
+          <section class="panel health-strip">
+            <div class="panel-heading">
+              <div class="health-main">
+                <span id="healthStatus" class="soft-badge idle">未检查</span>
+                <div>
+                  <h3 id="healthHeadline">等待健康检查</h3>
+                  <p id="healthSummary" class="section-note">这里会显示当前应用、主后端以及两个推理通道的详细状态。</p>
+                </div>
+              </div>
+            </div>
+            <div class="info-grid">
+              <div class="info-item">
+                <span>应用</span>
+                <strong id="springStatusValue">未检查</strong>
+              </div>
+              <div class="info-item">
+                <span>生效后端</span>
+                <strong id="healthBackendValue">未检查</strong>
+              </div>
+              <div class="info-item">
+                <span>Ollama</span>
+                <strong id="healthOllamaValue">未检查</strong>
+              </div>
+              <div class="info-item">
+                <span>OpenVINO</span>
+                <strong id="healthOpenvinoValue">未检查</strong>
+              </div>
+            </div>
+          </section>
+
+          <section id="toolBar" class="panel tool-bar hidden"></section>
+
+          <section id="patchPanel" class="panel patch-panel hidden">
+            <div class="panel-heading split">
+              <div>
+                <p class="eyebrow">补丁预览</p>
+                <h3>待确认变更</h3>
+              </div>
+              <button type="button" id="applyPatchBtn" class="primary-btn small">应用补丁</button>
+            </div>
+            <div id="patchPreview" class="patch-preview"></div>
+          </section>
+
+          <section id="chatLog" class="panel chat-log"></section>
+
+          <section id="tracePanel" class="panel trace-panel hidden">
+            <div class="panel-heading split">
+              <div>
+                <p class="eyebrow">执行链路</p>
+                <h3>最近一次请求 trace</h3>
+              </div>
+              <button type="button" id="toggleTrace" class="ghost-btn small">收起</button>
+            </div>
+            <pre id="traceContent"></pre>
+          </section>
+
+          <form id="chatForm" class="panel composer">
+            <label for="messageInput" class="sr-only">消息输入框</label>
+            <textarea id="messageInput" rows="5" placeholder="例如：读取 pom.xml，并用中文告诉我这个项目下一步应该怎么演进。"></textarea>
+            <div class="composer-meta">
+              <div class="composer-hint">Enter 发送，Shift+Enter 换行</div>
+              <div id="requestStatus" class="request-status idle">状态：就绪</div>
+            </div>
+            <div class="composer-bar">
+              <button type="button" id="showTraceBtn" class="ghost-btn" aria-controls="tracePanel" disabled>查看上次链路</button>
+              <button type="submit" id="sendBtn" class="primary-btn">发送请求</button>
+            </div>
+          </form>
         </div>
       </div>
-      <div class="control-grid">
-        <label class="control-field" for="backendSelect">
-          <span>Backend</span>
-          <select id="backendSelect">
-            <option value="auto">Auto</option>
-          </select>
-        </label>
-        <label class="control-field" for="modelProfileSelect">
-          <span>Model Profile</span>
-          <select id="modelProfileSelect">
-            <option value="auto">Auto</option>
-          </select>
-        </label>
-      </div>
-      <p id="runtimeHint" class="runtime-hint">Loading runtime options...</p>
     </section>
 
-    <section id="toolBar" class="tool-bar hidden"></section>
-
-    <section id="patchPanel" class="patch-panel hidden">
-      <div class="patch-header">
+    <section id="docsView" class="page-view hidden">
+      <section class="page-heading">
         <div>
-          <p class="eyebrow">PATCH PREVIEW</p>
-          <h3>Pending change</h3>
+          <p class="eyebrow">项目文档</p>
+          <h2>README 双语展示</h2>
+          <p class="section-note">直接读取仓库里的 README，让文档和实际代码保持同源。</p>
         </div>
-        <button id="applyPatchBtn" class="primary-btn small">Apply patch</button>
-      </div>
-      <div id="patchPreview" class="patch-preview"></div>
-    </section>
+      </section>
 
-    <section id="patchHistoryPanel" class="patch-history hidden">
-      <div class="trace-header">
-        <h3>Patch history</h3>
-      </div>
-      <div id="patchHistoryList" class="patch-history-list"></div>
-    </section>
+      <div class="docs-layout">
+        <aside class="column column-side">
+          <section class="panel docs-info-panel">
+            <div class="panel-heading">
+              <div>
+                <p class="eyebrow">文档摘要</p>
+                <h3>当前阅读状态</h3>
+              </div>
+            </div>
+            <div class="status-list">
+              <div class="status-row">
+                <span>语言</span>
+                <strong id="docsInfoLanguage">中文</strong>
+              </div>
+              <div class="status-row">
+                <span>来源</span>
+                <strong id="docsInfoSource">README.md</strong>
+              </div>
+              <div class="status-row">
+                <span>同步状态</span>
+                <strong id="docsInfoStatus">未加载</strong>
+              </div>
+            </div>
+            <p class="section-note">切换语言时会重新请求对应的 README 文件，不额外维护副本。</p>
+          </section>
 
-    <section id="chatLog" class="chat-log">
-      <article class="message assistant">
-        <div class="message-badge">QWEN</div>
-        <div class="message-body">
-          <p>Local agent is ready. Ask it to inspect files, explain the current project, or edit the workspace through the controlled tool layer.</p>
+          <section class="panel docs-outline-panel">
+            <div class="panel-heading">
+              <div>
+                <p class="eyebrow">阅读导航</p>
+                <h3>章节索引</h3>
+              </div>
+            </div>
+            <label class="control-field outline-filter-field" for="docsOutlineFilter">
+              <span>筛选标题</span>
+              <input id="docsOutlineFilter" type="search" placeholder="输入章节关键词">
+            </label>
+            <div id="docsOutline" class="outline-list">
+              <p class="empty-copy">加载文档后，这里会显示标题导航。</p>
+            </div>
+          </section>
+
+          <section class="panel docs-actions-panel">
+            <div class="panel-heading">
+              <div>
+                <p class="eyebrow">快捷操作</p>
+                <h3>从文档继续工作</h3>
+              </div>
+            </div>
+            <div class="action-list">
+              <button type="button" id="docsToChatBtn" class="primary-btn">带着文档去聊天</button>
+              <button type="button" id="docsRefreshBtn" class="ghost-btn">重新加载文档</button>
+            </div>
+          </section>
+        </aside>
+
+        <div class="column column-main">
+          <section class="panel docs-toolbar">
+            <div class="docs-toolbar-main">
+              <p class="eyebrow">README Viewer</p>
+              <h3 id="docsTitle">项目说明</h3>
+              <p id="docsMeta" class="section-note">点击“展示文档”后会直接加载仓库 README。</p>
+            </div>
+            <div class="docs-toolbar-side">
+              <div class="language-switch" role="tablist" aria-label="文档语言">
+                <button type="button" class="lang-btn active" data-docs-language="zh" aria-selected="true">中文</button>
+                <button type="button" class="lang-btn" data-docs-language="en" aria-selected="false">English</button>
+              </div>
+              <div class="docs-stats" aria-label="文档阅读状态">
+                <div class="docs-stat">
+                  <span>章节</span>
+                  <strong id="docsHeadingCount">0</strong>
+                </div>
+                <div class="docs-stat">
+                  <span>预计阅读</span>
+                  <strong id="docsReadingTime">--</strong>
+                </div>
+                <div class="docs-stat">
+                  <span>进度</span>
+                  <strong id="docsProgressText">0%</strong>
+                </div>
+              </div>
+              <div class="docs-progress">
+                <div class="docs-progress-track">
+                  <div id="docsProgressBar" class="docs-progress-bar"></div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <article id="docsArticle" class="panel docs-article">
+            <div class="docs-placeholder">
+              <p>点击“展示文档”加载仓库 README。</p>
+            </div>
+          </article>
         </div>
-      </article>
-    </section>
-
-    <section id="tracePanel" class="trace-panel hidden">
-      <div class="trace-header">
-        <h3>Execution trace</h3>
-        <button id="toggleTrace" class="ghost-btn small">Hide</button>
       </div>
-      <pre id="traceContent"></pre>
     </section>
-
-    <form id="chatForm" class="composer">
-      <label for="messageInput" class="sr-only">Message input</label>
-      <textarea id="messageInput" rows="4" placeholder="For example: read pom.xml and tell me how this project should evolve next."></textarea>
-      <div class="composer-bar">
-        <button type="button" id="showTraceBtn" class="ghost-btn">Show last trace</button>
-        <button type="submit" id="sendBtn" class="primary-btn">Send</button>
-      </div>
-    </form>
   </main>
 </div>
+
+<div id="toastStack" class="toast-stack" aria-live="polite" aria-atomic="true"></div>
 
 <script src="/app.js"></script>
 </body>

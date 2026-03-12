@@ -1,31 +1,51 @@
 # local-qwn
 
-`local-qwn` is a local Qwen agent project built with Java 17, Spring Boot 3, and Ollama.
+`local-qwn` is a local Qwen agent project for controlled development workflows.
 
-The goal is not to expose an unrestricted autonomous agent. Instead, this project builds a controlled and auditable execution layer for local model-assisted development workflows.
+It is built on `Java 17 + Spring Boot 3` and provides guarded file tools, request-level backend routing, session context, and a patch confirmation flow. The goal is not to expose a fully unrestricted autonomous agent, but to build a practical, auditable local execution layer first.
 
-It currently includes:
+## Current Capabilities
 
-- chat APIs
-- controlled file tools
-- patch preview and confirmation
-- health checks with UI status
-- session memory and execution traces
+- Chat API: `POST /api/chat`
+  - session-aware context
+  - request-level backend selection
+  - request-level model profile selection
+- Runtime health API: `GET /api/health`
+  - reports Spring Boot, Ollama, and OpenVINO reachability
+  - reports the active machine profile and primary backend
+- Runtime options API: `GET /api/runtime/options`
+  - returns available backends, model profiles, and auto-routing hints
+- Docs API: `GET /api/docs/{lang}`
+  - reads the bilingual project README directly from the repository
+- Patch apply API: `POST /api/patch/apply`
+  - applies only a previously previewed patch for the same session
+- Session reset API: `POST /api/session/{sessionId}/clear`
+- Browser workspace
+  - welcome page
+  - chat page
+  - docs page
+  - tool traces, patch preview, patch history, and health panels
 
-## Features
+## Model Backends and Routing
 
-- `POST /api/chat`
-  - runs a bounded multi-step agent loop against a local Ollama model
-- `GET /api/health`
-  - checks both Spring Boot and Ollama reachability
-- `POST /api/patch/apply`
-  - applies only the pending previewed patch for the same session
-- `POST /api/session/{sessionId}/clear`
-  - clears session memory and pending patch state
-- browser UI
-  - chat panel, tool trace, health state, patch preview, and patch history
+The project currently supports:
 
-Registered tools:
+- `ollama`
+- `openvino`
+
+Selection priority:
+
+1. explicit `modelProfile`
+2. explicit `backend`
+3. automatic request classification
+
+The current auto strategy is intentionally simple:
+
+- coding, debugging, and tool-planning requests prefer the coding profile
+- lightweight writing, organizing, and translation requests prefer the lightweight profile
+- if the selected backend is unavailable, the app attempts a configured fallback backend
+
+## Registered Tools
 
 - `list_files`
 - `read_file`
@@ -35,59 +55,30 @@ Registered tools:
 - `preview_patch_file`
 - `patch_file`
 
-## Safety Model
+## Safety Boundary
 
-This project intentionally stays conservative.
+The current implementation stays conservative on purpose:
 
-- all file operations are restricted to the configured workspace root
-- `patch_file` requires a matching `preview_patch_file` in the same chat turn
-- `write_file` is create-only and refuses overwriting existing files
-- read, search, and patch flows include file-size, traversal, and truncation guardrails
+- all file operations are limited to the configured workspace root
+- `write_file` is create-only and will not overwrite existing files
+- `patch_file` requires a matching `preview_patch_file` in the same turn
+- search, file reading, and patch preview are protected by truncation and path guardrails
 - raw shell execution is not enabled
 
-## Architecture
-
-High-level flow:
-
-`Browser UI -> Spring Boot API -> Agent Loop -> Tool Registry -> Workspace / Ollama`
-
-Main modules:
+## Project Layout
 
 - `src/main/java/cn/zzy/qwen/controller`
-  - REST entry points
+  - HTTP API entry points
 - `src/main/java/cn/zzy/qwen/service`
-  - agent orchestration, Ollama integration, health, memory, pending patch state
+  - agent orchestration, backend calls, health, session state, docs loading
 - `src/main/java/cn/zzy/qwen/tools`
-  - controlled file tools and workspace boundary enforcement
+  - controlled tools and workspace boundary enforcement
 - `src/main/resources/static`
-  - frontend HTML, CSS, and JavaScript
+  - frontend pages, styles, and browser interaction logic
+- `src/main/resources/machines`
+  - shared and machine-specific runtime configuration
 
-## Requirements
-
-- Java 17
-- Ollama
-- a local model such as:
-
-```bash
-ollama pull qwen2.5-coder:14b
-```
-
-## Configuration
-
-Default configuration file:
-
-- `src/main/resources/application.yml`
-
-Important keys:
-
-- `qwen.ollama.base-url`
-- `qwen.ollama.model`
-- `qwen.ollama.timeout-seconds`
-- `qwen.tools.workspace-root`
-
-If the project directory moves, update `workspace-root`.
-
-## Run
+## Quick Start
 
 ### Windows
 
@@ -103,23 +94,63 @@ If the project directory moves, update `workspace-root`.
 
 After startup:
 
-- UI: `http://localhost:8080`
-- health endpoint: `http://localhost:8080/api/health`
+- workspace UI: `http://localhost:8080`
+- health API: `http://localhost:8080/api/health`
+- docs API: `http://localhost:8080/api/docs/en`
 
-## API Example
+## Prerequisites
+
+- Java 17
+- at least one local backend ready to use
+  - Ollama: recommended `qwen2.5-coder:14b`
+  - OpenVINO: validated lightweight model plus Python entry script
+
+Example:
+
+```bash
+ollama pull qwen2.5-coder:14b
+```
+
+## Configuration
+
+The project uses shared config plus machine-profile overrides:
+
+- `src/main/resources/application.yml`
+- `src/main/resources/machines/common.yml`
+- `src/main/resources/machines/default.yml`
+- `src/main/resources/machines/<profile>.yml`
+
+Common keys:
+
+- `qwen.backend.type`
+- `qwen.backend.fallback-type`
+- `qwen.ollama.base-url`
+- `qwen.ollama.model`
+- `qwen.openvino.python-exe`
+- `qwen.openvino.script-path`
+- `qwen.openvino.model-dir`
+- `qwen.tools.workspace-root`
+
+## Common API Examples
 
 ### Chat request
 
 ```bash
 curl -X POST http://localhost:8080/api/chat ^
   -H "Content-Type: application/json" ^
-  -d "{\"message\":\"read pom.xml\",\"sessionId\":\"demo\"}"
+  -d "{\"message\":\"read pom.xml\",\"sessionId\":\"demo\",\"backend\":\"auto\",\"modelProfile\":\"auto\"}"
 ```
 
-### Health check
+### Runtime options
 
 ```bash
-curl http://localhost:8080/api/health
+curl http://localhost:8080/api/runtime/options
+```
+
+### English docs
+
+```bash
+curl http://localhost:8080/api/docs/en
 ```
 
 ## Test
@@ -136,35 +167,28 @@ curl http://localhost:8080/api/health
 ./mvnw test
 ```
 
-## Branch Strategy
+## Branch Flow
 
-This repository currently uses:
+Recommended collaboration model:
 
 - `master`
   - stable release branch
 - `develop`
-  - active development and multi-terminal sync branch
+  - daily integration branch
+- `feature/<task>`
+  - short-lived task branches
 
-Recommended workflow:
+Suggested flow:
 
-1. land new changes in `develop`
-2. sync and validate across terminals on `develop`
-3. merge into `master` after the work is stable
+1. branch from `develop`
+2. implement and validate in the feature branch
+3. merge back into `develop`
+4. promote stable work into `master`
 
-## Roadmap
+## Near-Term Focus
 
 - persist session history and pending patch state
-- replace text-based patch preview payloads with structured diff data
-- add a stronger project summary / code map capability
-- consider whitelisted shell execution, RAG, and streaming later
+- replace text-only patch preview payloads with structured diff data
+- keep improving the unified welcome, docs, and chat experience
+- continue refining request-level routing and cross-backend fallback behavior
 
-## Contributing
-
-Contributions are welcome.
-
-When sending changes, prefer including:
-
-- a short change summary
-- API impact
-- test results
-- whether any safety boundary changed

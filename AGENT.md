@@ -17,6 +17,13 @@ This Java project adds:
 - Runtime:
   - Java 17
   - Spring Boot 3
+- Frontend:
+  - single-page browser workspace served from `src/main/resources/static`
+  - three views with shared visual system:
+    - welcome view
+    - chat view
+    - docs view
+  - default entry is now the welcome view
 - Model backend:
   - `Ollama` backend
   - `OpenVINO` backend via local Python process execution
@@ -39,6 +46,7 @@ This Java project adds:
 - current verified OpenVINO profile on `redmibook14`:
   - `qwen2.5-1.5b-instruct-int4-ov`
   - preferred device: `NPU`
+  - repo-local wrapper: `${user.dir}/scripts/openvino/run_genai.py`
 
 ## Implemented Capabilities
 
@@ -50,7 +58,9 @@ This Java project adds:
 ```json
 {
   "message": "read pom.xml",
-  "sessionId": "browser-session-id"
+  "sessionId": "browser-session-id",
+  "backend": "auto",
+  "modelProfile": "auto"
 }
 ```
 
@@ -68,6 +78,31 @@ This Java project adds:
   - degraded
   - failed
 
+### Runtime Options Endpoint
+
+- `GET /api/runtime/options`
+- returns:
+  - current machine profile
+  - configured primary backend
+  - configured fallback backend
+  - available backends
+  - available model profiles
+  - auto-routing defaults
+
+### Docs Endpoint
+
+- `GET /api/docs/{language}`
+- currently supported:
+  - `zh`
+  - `en`
+- reads directly from:
+  - `README.md`
+  - `README.en.md`
+- response payload:
+  - `language`
+  - `title`
+  - `content`
+
 ### Patch Apply Endpoint
 
 - `POST /api/patch/apply`
@@ -82,15 +117,33 @@ This Java project adds:
 ### Web UI
 
 - `/`
-- browser chat panel served by Spring Boot static resources
+- browser workspace served by Spring Boot static resources
 - includes:
-  - local chat composer
-  - health check button
-  - suggested prompts
-  - execution trace viewer
-  - tools-used chips per request
-  - new session button
-  - patch preview panel with apply action
+  - default welcome page with hero actions:
+    - `开始聊天`
+    - `展示文档`
+  - top navigation between:
+    - welcome
+    - chat
+    - docs
+  - top health badge and health check action
+  - new session action
+  - chat workspace with:
+    - local chat composer
+    - health strip
+    - runtime routing controls
+    - suggested prompts
+    - execution trace viewer
+    - tools-used chips per request
+    - patch preview panel with apply action
+    - patch apply history
+  - docs workspace with:
+    - bilingual README viewer
+    - language switch
+    - generated heading outline
+    - jump back into chat action
+  - Chinese-first copy and labels
+  - client-side markdown rendering for docs page
 
 ### Registered Tools
 
@@ -157,10 +210,19 @@ It is useful for a single running process but not persistent across restarts.
 
 1. Persist conversation sessions and pending patch state across restarts.
 2. Replace plain pending patch payloads with a structured preview model instead of parsing preview text on the frontend.
-3. Add an explicit UI flow for create-file confirmation so `write_file` and patch confirmation feel consistent.
-4. Improve prompt instructions so Qwen emits more stable action JSON and fewer invalid tool calls.
-5. Add a project summary / code map tool for larger repositories.
-6. Reduce `/api/health` latency by making backend probes lighter or cached.
+3. Refactor the browser UI code structure before the next large frontend pass:
+   - split CSS by section/view instead of keeping all styles in one file
+   - separate shared tokens/layout utilities from welcome/chat/docs-specific styles
+   - simplify client-side page logic so view-specific behavior is easier to extend
+   - it is acceptable to introduce a lightweight existing CSS package or utility layer if it reduces maintenance cost
+4. Improve README rendering in the docs view:
+   - make heading hierarchy visually stronger
+   - improve indentation and readability for nested lists
+   - keep code blocks, quotes, and section spacing more document-like
+5. Add an explicit UI flow for create-file confirmation so `write_file` and patch confirmation feel consistent.
+6. Improve prompt instructions so Qwen emits more stable action JSON and fewer invalid tool calls.
+7. Add a project summary / code map tool for larger repositories.
+8. Reduce `/api/health` latency by making backend probes lighter or cached.
 
 ### Medium Priority
 
@@ -193,8 +255,11 @@ It is useful for a single running process but not persistent across restarts.
 - Restarting the Spring Boot app clears all chat history.
 - Daily development should land on `develop` first.
 - `master` is treated as the stable/release branch.
+- Current active task branch in progress:
+  - `feature/request-backend-selection`
 - The current OpenVINO path is validated only for local process execution through:
-  - `C:/Users/12608/openvino-ai/run_genai.py`
+  - `${user.dir}/scripts/openvino/run_genai.py`
+- OpenVINO prompt text is now sent over `stdin` instead of a raw command-line argument to avoid Windows encoding corruption on non-ASCII prompts.
 - The current OpenVINO model is suitable for lightweight writing tasks, not a full replacement for the coding-oriented Ollama model.
 - Request payloads can now optionally choose:
   - `backend`
@@ -203,7 +268,53 @@ It is useful for a single running process but not persistent across restarts.
   - explicit `modelProfile`
   - explicit `backend`
   - auto heuristic based on request type
+- Request routing now attempts a configured alternate backend when the selected backend is unavailable.
+- The current auto heuristic recognizes broader lightweight writing requests and ignores `don't use tools` / `不要调用工具` style phrases when classifying writing vs coding requests.
+- Verified on `redmibook14` with `ollama` offline:
+  - explicit `openvino-lite` requests succeed
+  - auto lightweight writing requests resolve to `openvino-lite`
+  - auto coding requests can fall back to `openvino-lite`
+- The browser UI was recently reworked into a three-view SPA:
+  - welcome view is the default entry
+  - docs view loads README content through `/api/docs/{language}`
+  - docs content is cached per language in the browser
+  - chat view retains health, routing, trace, patch preview, and patch history
+- `README.md` and `README.en.md` were both refreshed and are now intended to be the source of truth for the docs page.
+- Validation completed after the latest docs/welcome-page work:
+  - `node --check src/main/resources/static/app.js`
+  - `./mvnw.cmd test`
+  - headless Edge smoke screenshots for:
+    - welcome view
+    - chat view
+    - docs view
+- Browser-level QA was redone after the latest frontend pass; the remaining obvious frontend follow-up is no longer "do QA first", but "refactor frontend structure and improve docs rendering quality".
+- Important user preference:
+  - do not leave Spring Boot running on port `8080` after finishing work
+  - if local runtime verification requires starting the app, stop it before handoff
 - When a task is completed, refresh this file so completed items are removed and new workflow/project facts are recorded.
+
+## Handoff Snapshot
+
+- Recently completed:
+  - real backend integration and fallback verification on `feature/request-backend-selection`
+  - docs API backed by repository README files
+  - bilingual `README.md` / `README.en.md` refresh
+  - frontend rewrite into shared welcome/chat/docs experience
+  - browser QA pass with runtime screenshots plus another round of welcome/chat/docs polish
+- Key files touched in the latest frontend/docs pass:
+  - `src/main/resources/static/index.html`
+  - `src/main/resources/static/styles.css`
+  - `src/main/resources/static/app.js`
+  - `src/main/java/cn/zzy/qwen/controller/ChatController.java`
+  - `src/main/java/cn/zzy/qwen/service/ProjectDocsService.java`
+  - `src/main/java/cn/zzy/qwen/model/DocsResponse.java`
+  - `src/test/java/cn/zzy/qwen/controller/ChatControllerTest.java`
+  - `README.md`
+  - `README.en.md`
+- Current likely next step for a new conversation:
+  - refactor the frontend code structure so shared CSS and view-specific CSS are easier to extend
+  - improve README presentation quality in the docs view, especially heading hierarchy and nested list readability
+  - then return to structured patch preview and session persistence
 
 ## Branch Strategy
 
@@ -258,4 +369,4 @@ If memory is working, the assistant should keep context across those turns.
 
 When continuing work on this project, the next best step is:
 
-"Persist conversation state and pending patches across restarts, then replace the current text-based pending patch payload with a structured preview model. After another machine profile is validated, refine the current request-level backend routing and task-based model selection rules."
+"Continue on `feature/request-backend-selection`. The immediate unfinished frontend tasks are: (1) refactor the SPA frontend structure, especially splitting shared CSS and view-specific CSS and simplifying page logic, optionally with a lightweight CSS package; (2) improve docs-view README rendering so title hierarchy, nested indentation, and overall document readability are stronger. Do not leave port 8080 occupied after verification. After those are done, return to structured patch preview and persisted session/pending-patch state."

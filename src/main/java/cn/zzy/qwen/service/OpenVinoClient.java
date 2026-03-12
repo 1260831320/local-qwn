@@ -73,7 +73,6 @@ public class OpenVinoClient implements ModelBackend {
         command.add(properties.pythonExe());
         command.add(properties.scriptPath());
         command.add(modelDir);
-        command.add(prompt == null ? "" : prompt);
         if (hasText(properties.device())) {
             command.add("--device");
             command.add(properties.device());
@@ -86,10 +85,13 @@ public class OpenVinoClient implements ModelBackend {
         if (scriptParent != null) {
             processBuilder.directory(scriptParent.toFile());
         }
+        processBuilder.environment().put("PYTHONIOENCODING", "UTF-8");
+        processBuilder.environment().put("PYTHONUTF8", "1");
         processBuilder.redirectErrorStream(true);
 
         try {
             Process process = processBuilder.start();
+            writePrompt(process, prompt);
             CompletableFuture<String> outputFuture = readOutput(process.getInputStream());
             boolean finished = process.waitFor(Math.max(properties.timeoutSeconds(), 1), TimeUnit.SECONDS);
             if (!finished) {
@@ -118,6 +120,13 @@ public class OpenVinoClient implements ModelBackend {
             throw new IllegalStateException("Failed to read OpenVINO output.", cause);
         } catch (TimeoutException ex) {
             throw new IllegalStateException("Timed out while collecting OpenVINO output.", ex);
+        }
+    }
+
+    private void writePrompt(Process process, String prompt) throws IOException {
+        try (var stream = process.getOutputStream()) {
+            stream.write((prompt == null ? "" : prompt).getBytes(StandardCharsets.UTF_8));
+            stream.flush();
         }
     }
 
