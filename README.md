@@ -1,51 +1,57 @@
-# local-qwn
+# 鸿栀 v1.0.0
 
-`local-qwn` 是一个面向本地研发联调场景的 Qwen Agent 项目。
+`鸿栀` 当前是一个本地优先的情感陪护机器人原型仓库。
 
-它基于 `Java 17 + Spring Boot 3`，提供受控工具边界、可切换模型后端、会话上下文和补丁确认流程。目标不是做一个完全放开的自治代理，而是先把本地模型接入、文件操作和请求路由做成可审计、可演进的工程底座。
+它还不是完整的 A22 多模态数字人系统，当前阶段的目标是先把下面几件事做扎实：
 
-## 当前能力
+- 验证本地部署与本地推理是否稳定可用
+- 验证受控工具调用与边界化文件修改
+- 验证浏览器工作台在普通硬件上的可用性
+- 验证 `Ollama` 与 `OpenVINO` 间的本地后端路由
 
-- 聊天接口：`POST /api/chat`
-  - 支持会话上下文
-  - 支持 request 级后端选择
-  - 支持 request 级模型档位选择
-- 运行时状态接口：`GET /api/health`
-  - 展示 Spring Boot、Ollama、OpenVINO 的可达性
-  - 展示当前机器档案与主后端
-- 运行时选项接口：`GET /api/runtime/options`
-  - 返回可用后端、模型档位与自动路由信息
-- 文档接口：`GET /api/docs/{lang}`
-  - 直接读取仓库中的双语 README
-- 补丁确认接口：`POST /api/patch/apply`
-  - 只允许应用当前会话里已经预览过的补丁
-- 会话清理接口：`POST /api/session/{sessionId}/clear`
-- 浏览器端工作台
-  - 欢迎页
-  - 聊天页
-  - 文档页
-  - 工具链路、补丁预览、补丁记录、健康状态面板
+长期方向对齐第十七届中国大学生服务外包创新创业大赛 A22 题，逐步演进为“基于 AI 大语言模型的情感陪护虚拟数字人系统”。
 
-## 模型与路由
+## 当前版本定位
 
-当前项目支持两类后端：
+- 版本：`v1.0.0`
+- 描述：`情感陪护机器人原型`
+- 阶段：本地能力验证 + 前端结构收束
 
-- `ollama`
-- `openvino`
+当前版本强调：
 
-请求路由优先级：
+- 中文优先
+- 本地优先
+- 安全边界优先
+- 文档同源优先
 
-1. 显式 `modelProfile`
-2. 显式 `backend`
-3. 自动判断请求类型
+## 当前产品面
 
-自动判断的基本策略：
+### 浏览器工作台
 
-- 编码、调试、工具规划类请求优先走编码档位
-- 轻量写作、整理、翻译类请求优先走轻量档位
-- 当目标后端不可用时，会尝试回退到可配置的备用后端
+前端由 `Spring Boot` 直接托管，使用本地 vendored `Vue 3` 实现单页工作台，主入口位于 `src/main/resources/static`。
 
-## 已注册工具
+当前包含三个主视图：
+
+- 总览
+  - 以蓝白报告型结构展示项目定位、输入边界、流程分析、后端对比与运行说明
+- 工作台
+  - 提供聊天、运行态选择、健康状态、执行链路、补丁预览与补丁确认
+- 手册
+  - 直接读取 `README.md / README.en.md`
+  - 支持章节索引、标题锚点、阅读进度与章节摘要
+
+### 后端能力
+
+当前 HTTP 接口：
+
+- `POST /api/chat`
+- `GET /api/health`
+- `GET /api/runtime/options`
+- `GET /api/docs/{language}`
+- `POST /api/patch/apply`
+- `POST /api/session/{sessionId}/clear`
+
+当前注册工具：
 
 - `list_files`
 - `read_file`
@@ -55,28 +61,89 @@
 - `preview_patch_file`
 - `patch_file`
 
+## 当前前端结构
+
+```text
+src/main/resources/static
+├─ index.html
+├─ styles.css
+├─ app.js
+├─ vendor/
+│  └─ vue.global.prod.js
+├─ scripts/
+│  ├─ core.js
+│  ├─ markdown.js
+│  └─ vue/
+│     └─ workspace-app.js
+└─ styles/
+   ├─ base.css
+   ├─ welcome.css
+   ├─ chat.css
+   └─ docs.css
+```
+
+说明：
+
+- `core.js`
+  - 前端通用请求、格式化与文档语言工具
+- `markdown.js`
+  - README 渲染、标题提取、阅读时长估算
+- `workspace-app.js`
+  - Vue 工作台状态、视图切换、接口编排、滚动联动
+- `styles/*.css`
+  - 共享视觉层与视图样式拆分
+
+## 模型后端与路由
+
+当前支持两类本地后端：
+
+- `ollama`
+- `openvino`
+
+请求选择优先级：
+
+1. 显式 `modelProfile`
+2. 显式 `backend`
+3. 后端自动分类
+
+当前经验结论：
+
+- `Ollama`
+  - 更适合代码理解、补丁修改、复杂工具链联调
+- `OpenVINO`
+  - 更适合轻量写作、本地推理验证与普通硬件部署实验
+
+重要限制：
+
+- 当前 `OpenVINO` 路径已经验证可运行
+- 但它还不是 `Ollama` 的编码任务等价替代
+
 ## 安全边界
 
-当前实现刻意保持保守：
+仓库当前有意保持保守：
 
-- 所有文件操作都限制在配置好的工作区根目录内
-- `write_file` 仅允许创建新文件，不允许直接覆盖现有文件
-- `patch_file` 必须先有同轮、同参数的 `preview_patch_file`
-- 搜索、读取、补丁预览都带有限流、截断和路径校验
-- 当前没有开放原始 shell 执行
+- 文件操作限制在配置的工作区根目录内
+- 禁止路径穿越
+- `write_file` 仅允许创建，不覆盖已有文件
+- `patch_file` 必须基于同会话预览结果
+- 当前没有开放原始 shell 给模型直接执行
 
-## 目录说明
+不要为了演示效果破坏这些边界。
 
-- `src/main/java/cn/zzy/qwen/controller`
-  - HTTP API 入口
-- `src/main/java/cn/zzy/qwen/service`
-  - Agent 编排、后端调用、健康检查、会话状态、文档读取
-- `src/main/java/cn/zzy/qwen/tools`
-  - 受控工具与工作区边界
-- `src/main/resources/static`
-  - 前端页面、样式和交互逻辑
-- `src/main/resources/machines`
-  - 机器档案与运行时覆盖配置
+## 运行环境
+
+- `Java 17`
+- `Spring Boot 3`
+- 至少一个可用本地后端
+  - `Ollama`
+  - 或 `OpenVINO` 本地 Python 推理路径
+
+当前已验证的 OpenVINO 关键信息：
+
+- wrapper: `${user.dir}/scripts/openvino/run_genai.py`
+- validated machine profile: `redmibook14`
+- validated model: `qwen2.5-1.5b-instruct-int4-ov`
+- preferred device: `NPU`
 
 ## 快速启动
 
@@ -92,44 +159,29 @@
 ./mvnw spring-boot:run
 ```
 
-启动后：
+启动后入口：
 
 - 工作台：`http://localhost:8080`
 - 健康检查：`http://localhost:8080/api/health`
-- 文档接口：`http://localhost:8080/api/docs/zh`
+- 中文手册：`http://localhost:8080/api/docs/zh`
+- 英文手册：`http://localhost:8080/api/docs/en`
 
-## 运行前准备
+## 常用验证
 
-- Java 17
-- 本地可用的模型后端
-  - Ollama：建议至少准备 `qwen2.5-coder:14b`
-  - OpenVINO：建议准备已验证的轻量模型和 Python 入口脚本
+### 前端语法检查
 
-示例：
-
-```bash
-ollama pull qwen2.5-coder:14b
+```powershell
+node --check src/main/resources/static/app.js
+node --check src/main/resources/static/scripts/core.js
+node --check src/main/resources/static/scripts/markdown.js
+node --check src/main/resources/static/scripts/vue/workspace-app.js
 ```
 
-## 配置说明
+### 后端回归
 
-项目支持共享配置和机器档案配置：
-
-- `src/main/resources/application.yml`
-- `src/main/resources/machines/common.yml`
-- `src/main/resources/machines/default.yml`
-- `src/main/resources/machines/<profile>.yml`
-
-常用配置项：
-
-- `qwen.backend.type`
-- `qwen.backend.fallback-type`
-- `qwen.ollama.base-url`
-- `qwen.ollama.model`
-- `qwen.openvino.python-exe`
-- `qwen.openvino.script-path`
-- `qwen.openvino.model-dir`
-- `qwen.tools.workspace-root`
+```powershell
+.\mvnw.cmd test
+```
 
 ## 常用接口示例
 
@@ -147,48 +199,57 @@ curl -X POST http://localhost:8080/api/chat ^
 curl http://localhost:8080/api/runtime/options
 ```
 
-### 获取中文文档
+### 获取中文手册
 
 ```bash
 curl http://localhost:8080/api/docs/zh
 ```
 
-## 测试
+## 配置文件
 
-### Windows
+共享与机器覆盖配置：
 
-```powershell
-.\mvnw.cmd test
-```
+- `src/main/resources/application.yml`
+- `src/main/resources/machines/common.yml`
+- `src/main/resources/machines/default.yml`
+- `src/main/resources/machines/<profile>.yml`
 
-### macOS / Linux
+常用键：
 
-```bash
-./mvnw test
-```
+- `qwen.backend.type`
+- `qwen.backend.fallback-type`
+- `qwen.ollama.base-url`
+- `qwen.ollama.model`
+- `qwen.openvino.python-exe`
+- `qwen.openvino.script-path`
+- `qwen.openvino.model-dir`
+- `qwen.tools.workspace-root`
+
+## 当前仍缺的能力
+
+这几项已经在前端保留结构位，但当前版本没有假装实现：
+
+- 语音模式入口
+- 麦克风 / 摄像头状态读取
+- 数字人状态区
+- 情绪理解 / 干预结构化结果
+
+## 近期演进方向
+
+- 持久化会话历史与 pending patch
+- 将补丁预览升级为结构化 payload
+- 为 `ASR / TTS / avatar / emotion-state` 预留更明确 contract
+- 继续提高本地推理、文档阅读与工作台联调的一体化程度
 
 ## 分支协作
 
-推荐协作方式：
+推荐分支模型：
 
 - `master`
-  - 稳定发布分支
+  - 稳定发布
 - `develop`
-  - 日常集成分支
+  - 日常集成
 - `feature/<task>`
   - 短期任务分支
 
-建议流程：
-
-1. 新功能先从 `develop` 切出任务分支
-2. 在任务分支完成开发和联调
-3. 合并回 `develop`
-4. 稳定后再进入 `master`
-
-## 当前重点方向
-
-- 持久化会话历史与 pending patch
-- 把补丁预览从文本协议升级为结构化 diff
-- 增强欢迎页、文档页和聊天页的一体化体验
-- 继续优化 request 级模型路由与跨后端回退策略
-
+当前前后端仍处于单仓协作阶段，建议在共享基线下分支并行开发，而不是创建长期设备专属分支。

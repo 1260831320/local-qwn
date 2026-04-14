@@ -3,503 +3,597 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Qwen 本地工作台</title>
+  <title>鸿栀本地工作台</title>
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
-<div class="shell">
-  <header class="topbar panel">
-    <div class="topbar-brand">
-      <div class="brand-mark">Q</div>
-      <div>
-        <p class="eyebrow">LOCAL AGENT WORKSPACE</p>
-        <h1>Qwen 本地工作台</h1>
-      </div>
-    </div>
+<div id="app" v-cloak class="app-shell">
+  <div class="reader-progress" :class="{ active: currentView === 'docs' }" aria-hidden="true">
+    <div class="reader-progress-bar" :style="{ transform: `scaleX(${docsState.progress / 100})` }"></div>
+  </div>
 
-    <nav class="topbar-nav" aria-label="主导航" role="tablist">
-      <button type="button" class="nav-tab active" data-view-target="welcome" aria-controls="welcomeView" aria-selected="true">欢迎</button>
-      <button type="button" class="nav-tab" data-view-target="chat" aria-controls="chatView" aria-selected="false">聊天</button>
-      <button type="button" class="nav-tab" data-view-target="docs" aria-controls="docsView" aria-selected="false">文档</button>
+  <aside class="app-sidebar">
+    <section class="sidebar-card sidebar-brand">
+      <div class="brand-mark">鸿</div>
+      <div>
+        <p class="eyebrow">HONGZHI LOCAL WORKSPACE</p>
+        <h1>鸿栀本地工作台</h1>
+        <p class="sidebar-copy">前端先服务于本地模型验证、文档同源阅读、受控工具与补丁确认。语音、数字人和情绪干预仍处于结构预留阶段。</p>
+      </div>
+    </section>
+
+    <nav class="sidebar-card sidebar-nav" aria-label="主导航">
+      <button
+        v-for="item in navItems"
+        :key="item.id"
+        type="button"
+        class="sidebar-nav-item"
+        :class="{ active: currentView === item.id }"
+        @click="switchView(item.id, { resetScroll: true, focusComposer: item.id === 'chat' })"
+      >
+        <span>{{ item.label }}</span>
+        <small>{{ item.note }}</small>
+      </button>
     </nav>
 
-    <div class="topbar-actions">
-      <div id="topHealthBadge" class="top-health idle" title="等待健康检查">未检查</div>
-      <button type="button" id="topHealthBtn" class="ghost-btn small">健康检查</button>
-      <button type="button" id="topNewSessionBtn" class="ghost-btn small">新会话</button>
-    </div>
-  </header>
+    <section class="sidebar-card sidebar-outline">
+      <div class="sidebar-card-head">
+        <div>
+          <p class="eyebrow">{{ currentOutlineEyebrow }}</p>
+          <h2>{{ currentOutlineTitle }}</h2>
+        </div>
+      </div>
 
-  <section class="panel context-strip" aria-label="当前工作台状态">
-    <div class="context-item">
-      <span>当前视图</span>
-      <strong id="contextViewValue">欢迎页</strong>
-    </div>
-    <div class="context-item">
-      <span>会话</span>
-      <strong id="contextSessionValue">准备中</strong>
-    </div>
-    <div class="context-item">
-      <span>请求偏好</span>
-      <strong id="contextRouteValue">后端自动 · 档位自动</strong>
-    </div>
-    <div class="context-item">
-      <span>执行链路</span>
-      <strong id="contextTraceValue">暂无请求</strong>
-    </div>
-    <div class="context-item">
-      <span>文档状态</span>
-      <strong id="contextDocsValue">README 未加载</strong>
-    </div>
-    <div class="context-item">
-      <span>补丁状态</span>
-      <strong id="contextPatchValue">无待确认补丁</strong>
-    </div>
-  </section>
+      <label v-if="currentView === 'docs'" class="sidebar-filter">
+        <span>筛选标题</span>
+        <input v-model="docsOutlineFilter" type="search" placeholder="输入章节关键字">
+      </label>
 
-  <main class="view-stack">
-    <section id="welcomeView" class="page-view">
-      <div class="welcome-layout">
-        <section class="panel hero-panel">
-          <p class="eyebrow">默认入口</p>
-          <h2>先看清本地现场，再决定聊天还是翻文档。</h2>
-          <p class="hero-copy">
-            这个工作台把模型路由、健康状态、README 文档和补丁确认流放在同一套界面里。
-            每次进入都先落到欢迎页，适合先确认机器状态，再开始联调。
-          </p>
+      <div class="sidebar-outline-list">
+        <p v-if="currentView === 'docs' && docsHeadings.length && !filteredDocsHeadings.length" class="empty-copy">没有匹配当前关键字的章节。</p>
+        <p v-else-if="!currentOutlineItems.length" class="empty-copy">当前页面没有可导航的章节。</p>
+        <button
+          v-for="item in currentOutlineItems"
+          :key="item.anchor"
+          type="button"
+          class="outline-link"
+          :class="[{ active: currentActiveAnchor === item.anchor }, item.level ? `level-${Math.min(item.level, 3)}` : 'level-1']"
+          @click="scrollToSection(item.anchor)"
+        >
+          {{ item.text || item.label }}
+        </button>
+      </div>
+    </section>
+
+    <section class="sidebar-card sidebar-status">
+      <div class="sidebar-card-head">
+        <div>
+          <p class="eyebrow">当前状态</p>
+          <h2>运行摘要</h2>
+        </div>
+        <span class="status-badge" :class="healthState.visual">{{ healthBadgeLabel }}</span>
+      </div>
+
+      <div class="sidebar-metrics">
+        <article class="metric-box">
+          <span>主后端</span>
+          <strong>{{ runtimeSummary.backend }}</strong>
+        </article>
+        <article class="metric-box">
+          <span>代码档位</span>
+          <strong>{{ runtimeSummary.model }}</strong>
+        </article>
+        <article class="metric-box">
+          <span>会话</span>
+          <strong :title="sessionId">{{ utils.shortenSessionId(sessionId) }}</strong>
+        </article>
+        <article class="metric-box">
+          <span>文档</span>
+          <strong>{{ docsSourceName }}</strong>
+        </article>
+      </div>
+
+      <p class="sidebar-copy">{{ healthState.summary }}</p>
+
+      <div class="sidebar-actions">
+        <button type="button" class="ghost-btn" :disabled="isHealthChecking" @click="refreshHealth()">
+          {{ isHealthChecking ? "检查中..." : "健康检查" }}
+        </button>
+        <button type="button" class="ghost-btn" :disabled="isResettingSession" @click="resetSession()">
+          {{ isResettingSession ? "重置中..." : "新会话" }}
+        </button>
+        <button type="button" class="ghost-btn" @click="scrollToTop()">返回顶部</button>
+      </div>
+    </section>
+  </aside>
+
+  <main class="app-main">
+    <section v-show="currentView === 'welcome'" class="page-view page-view-welcome">
+      <section id="welcome-hero" class="report-card hero-card">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">项目总览</p>
+            <h2>围绕本地推理、受控工具和 README 同源阅读，给“鸿栀”后续演进留出清晰前端骨架。</h2>
+            <p class="section-note">现在不是完整数字人产品，而是更适合展示、评审和迭代的本地工作台。重点展示已验证链路，未实现能力只保留诚实扩展位。</p>
+          </div>
           <div class="hero-actions">
-            <button type="button" id="enterChatBtn" class="primary-btn large">开始聊天</button>
-            <button type="button" id="showDocsBtn" class="ghost-btn large">展示文档</button>
+            <button type="button" class="primary-btn" @click="switchView('chat', { resetScroll: true, focusComposer: true })">进入工作台</button>
+            <button type="button" class="ghost-btn" @click="switchView('docs', { resetScroll: true })">阅读手册</button>
           </div>
-          <div class="chip-row">
-            <span class="mini-chip">中文优先</span>
-            <span class="mini-chip">README 直连</span>
-            <span class="mini-chip">受控工具边界</span>
-          </div>
-          <div class="welcome-note">
-            <strong>推荐路径</strong>
-            <p>先做一次健康检查，再根据需要进入聊天联调或直接查看双语 README。</p>
-          </div>
-          <div class="hero-handoff">
-            <div class="hero-handoff-heading">
-              <strong>接力点</strong>
-              <p>把欢迎页、文档页和聊天页串成一次完整联调路径，而不是来回跳页。</p>
-            </div>
-            <div class="hero-handoff-grid">
-              <article class="handoff-card">
-                <span>01</span>
-                <div>
-                  <strong>先确认现场</strong>
-                  <p>优先看健康检查、机器档案和主后端，避免对运行环境产生误判。</p>
-                </div>
-              </article>
-              <article class="handoff-card">
-                <span>02</span>
-                <div>
-                  <strong>再过 README</strong>
-                  <p>需要项目全貌时，先读仓库里的 README，再决定是不是直接发起联调请求。</p>
-                </div>
-              </article>
-              <article class="handoff-card">
-                <span>03</span>
-                <div>
-                  <strong>最后进聊天</strong>
-                  <p>进入聊天页后，再结合工具链路、trace 和补丁确认推进修改。</p>
-                </div>
-              </article>
-            </div>
-          </div>
-        </section>
+        </div>
 
-        <aside class="panel spotlight-panel">
-          <div class="panel-heading">
-            <div>
-              <p class="eyebrow">运行摘要</p>
-              <h3>当前默认配置</h3>
-            </div>
+        <div class="hero-layout">
+          <div class="metric-grid">
+            <article v-for="metric in heroMetrics" :key="metric.label" class="metric-card">
+              <span>{{ metric.label }}</span>
+              <strong>{{ metric.value }}</strong>
+              <p>{{ metric.note }}</p>
+            </article>
           </div>
-          <div class="status-list">
-            <div class="status-row">
-              <span>机器档案</span>
-              <strong id="welcomeMachineValue">读取中</strong>
-            </div>
-            <div class="status-row">
-              <span>默认主后端</span>
-              <strong id="welcomeBackendValue">读取中</strong>
-            </div>
-            <div class="status-row">
-              <span>自动代码档</span>
-              <strong id="welcomeCodeProfileValue">读取中</strong>
-            </div>
-            <div class="status-row">
-              <span>自动轻写作</span>
-              <strong id="welcomeGeneralProfileValue">读取中</strong>
-            </div>
-          </div>
-          <p id="welcomeRuntimeHint" class="section-note">正在读取运行时选项...</p>
-        </aside>
-      </div>
 
-      <div class="overview-grid">
-        <section class="panel overview-panel">
-          <div class="panel-heading">
-            <div>
-              <p class="eyebrow">健康状态</p>
-              <h3>本地服务概览</h3>
-            </div>
-            <span id="welcomeHealthBadge" class="soft-badge idle">未检查</span>
+          <div class="timeline-card">
+            <p class="eyebrow">核心闭环</p>
+            <ol class="timeline-list">
+              <li v-for="step in workflowSteps" :key="step.id">
+                <strong>{{ step.label }}</strong>
+                <p>{{ step.description }}</p>
+              </li>
+            </ol>
           </div>
-          <p id="welcomeHealthSummary" class="section-note">这里会显示 Spring Boot、主后端和两个推理通道的连通性。</p>
-          <div class="info-grid compact">
-            <div class="info-item">
-              <span>应用</span>
-              <strong id="welcomeSpringValue">未检查</strong>
-            </div>
-            <div class="info-item">
-              <span>生效后端</span>
-              <strong id="welcomeHealthBackendValue">未检查</strong>
-            </div>
-            <div class="info-item">
-              <span>Ollama</span>
-              <strong id="welcomeOllamaValue">未检查</strong>
-            </div>
-            <div class="info-item">
-              <span>OpenVINO</span>
-              <strong id="welcomeOpenvinoValue">未检查</strong>
-            </div>
-          </div>
-        </section>
-
-        <section class="panel overview-panel">
-          <div class="panel-heading">
-            <div>
-              <p class="eyebrow">文档中心</p>
-              <h3>README 直接展示</h3>
-            </div>
-          </div>
-          <p class="section-note">
-            文档页直接读取仓库里的 <code>README.md</code> 和 <code>README.en.md</code>，
-            不再维护一份割裂的说明副本。
-          </p>
-          <div class="info-grid single">
-            <div class="info-item">
-              <span>中文 / English</span>
-              <strong>一键切换</strong>
-            </div>
-            <div class="info-item">
-              <span>内容来源</span>
-              <strong>仓库 README</strong>
-            </div>
-          </div>
-        </section>
-
-        <section class="panel overview-panel">
-          <div class="panel-heading">
-            <div>
-              <p class="eyebrow">操作建议</p>
-              <h3>接力检查清单</h3>
-            </div>
-          </div>
-          <ol class="step-list">
-            <li>先看健康概览，确认当前主后端和回退链路是否可用。</li>
-            <li>需要了解项目结构时，先去文档页看 README，再进入聊天页。</li>
-            <li>需要改代码时，在聊天页里走补丁预览和确认流。</li>
-          </ol>
-        </section>
-      </div>
-    </section>
-
-    <section id="chatView" class="page-view hidden">
-      <section class="page-heading">
-        <div>
-          <p class="eyebrow">会话工作台</p>
-          <h2>开始本地联调</h2>
-          <p class="section-note">中文优先，重点展示后端选择、自动回退、工具链路和补丁确认。</p>
         </div>
       </section>
 
-      <div class="chat-layout">
-        <aside class="column column-side">
-          <section class="panel status-card">
-            <div class="panel-heading">
-              <div>
-                <p class="eyebrow">运行摘要</p>
-                <h3>本轮请求视角</h3>
-              </div>
-            </div>
-            <div class="status-list">
-              <div class="status-row">
-                <span>机器档案</span>
-                <strong id="machineProfileValue">读取中</strong>
-              </div>
-              <div class="status-row">
-                <span>生效后端</span>
-                <strong id="runtimeBackendValue">读取中</strong>
-              </div>
-              <div class="status-row">
-                <span>当前档位</span>
-                <strong id="runtimeModelValue">读取中</strong>
-              </div>
-              <div class="status-row">
-                <span>回退链路</span>
-                <strong id="runtimeFallbackValue">读取中</strong>
-              </div>
-            </div>
-            <details class="detail-toggle" id="modelDetails">
-              <summary>展开模型详情</summary>
-              <div class="detail-grid">
-                <div class="info-item">
-                  <span>档位别名</span>
-                  <strong id="runtimeModelProfileValue">读取中</strong>
-                </div>
-                <div class="info-item">
-                  <span>后端</span>
-                  <strong id="runtimeModelBackendValue">读取中</strong>
-                </div>
-                <div class="info-item wide">
-                  <span>完整模型标识</span>
-                  <code id="runtimeModelFullValue">读取中</code>
-                </div>
-              </div>
-            </details>
-          </section>
-
-          <section class="panel runtime-controls">
-            <div class="panel-heading">
-              <div>
-                <p class="eyebrow">请求路由</p>
-                <h3>本轮请求偏好</h3>
-              </div>
-            </div>
-            <p class="section-note">手动指定模型档位时优先级高于后端；保留为自动时由内容分类决定。</p>
-            <div class="control-grid">
-              <label class="control-field" for="backendSelect">
-                <span>后端</span>
-                <select id="backendSelect">
-                  <option value="auto">自动</option>
-                </select>
-              </label>
-              <label class="control-field" for="modelProfileSelect">
-                <span>模型档位</span>
-                <select id="modelProfileSelect">
-                  <option value="auto">自动</option>
-                </select>
-              </label>
-            </div>
-            <p id="runtimeHint" class="runtime-hint">正在读取运行时选项...</p>
-          </section>
-
-          <section class="panel suggestions-panel">
-            <div class="panel-heading">
-              <div>
-                <p class="eyebrow">联调入口</p>
-                <h3>快捷提问</h3>
-              </div>
-            </div>
-            <div class="suggestion-list">
-              <button type="button" class="suggestion" data-message="请列出项目根目录的关键文件，并用中文总结当前能力。">项目概览</button>
-              <button type="button" class="suggestion" data-message="请读取 pom.xml，并用中文解释当前架构。">解释架构</button>
-              <button type="button" class="suggestion" data-message="请检查运行时配置，并用中文说明这次请求大概率会走哪个后端。">检查运行时</button>
-              <button type="button" class="suggestion" data-message="请帮我生成接下来三项后端优化建议，写入 TODO.md 之前先给中文草案。">生成下一步 TODO</button>
-            </div>
-          </section>
-
-          <section id="patchHistoryPanel" class="panel patch-history hidden">
-            <div class="panel-heading">
-              <div>
-                <p class="eyebrow">补丁记录</p>
-                <h3>最近一次应用结果</h3>
-              </div>
-            </div>
-            <div id="patchHistoryList" class="patch-history-list"></div>
-          </section>
-        </aside>
-
-        <div class="column column-main">
-          <section class="panel health-strip">
-            <div class="panel-heading">
-              <div class="health-main">
-                <span id="healthStatus" class="soft-badge idle">未检查</span>
-                <div>
-                  <h3 id="healthHeadline">等待健康检查</h3>
-                  <p id="healthSummary" class="section-note">这里会显示当前应用、主后端以及两个推理通道的详细状态。</p>
-                </div>
-              </div>
-            </div>
-            <div class="info-grid">
-              <div class="info-item">
-                <span>应用</span>
-                <strong id="springStatusValue">未检查</strong>
-              </div>
-              <div class="info-item">
-                <span>生效后端</span>
-                <strong id="healthBackendValue">未检查</strong>
-              </div>
-              <div class="info-item">
-                <span>Ollama</span>
-                <strong id="healthOllamaValue">未检查</strong>
-              </div>
-              <div class="info-item">
-                <span>OpenVINO</span>
-                <strong id="healthOpenvinoValue">未检查</strong>
-              </div>
-            </div>
-          </section>
-
-          <section id="toolBar" class="panel tool-bar hidden"></section>
-
-          <section id="patchPanel" class="panel patch-panel hidden">
-            <div class="panel-heading split">
-              <div>
-                <p class="eyebrow">补丁预览</p>
-                <h3>待确认变更</h3>
-              </div>
-              <button type="button" id="applyPatchBtn" class="primary-btn small">应用补丁</button>
-            </div>
-            <div id="patchPreview" class="patch-preview"></div>
-          </section>
-
-          <section id="chatLog" class="panel chat-log"></section>
-
-          <section id="tracePanel" class="panel trace-panel hidden">
-            <div class="panel-heading split">
-              <div>
-                <p class="eyebrow">执行链路</p>
-                <h3>最近一次请求 trace</h3>
-              </div>
-              <button type="button" id="toggleTrace" class="ghost-btn small">收起</button>
-            </div>
-            <pre id="traceContent"></pre>
-          </section>
-
-          <form id="chatForm" class="panel composer">
-            <label for="messageInput" class="sr-only">消息输入框</label>
-            <textarea id="messageInput" rows="5" placeholder="例如：读取 pom.xml，并用中文告诉我这个项目下一步应该怎么演进。"></textarea>
-            <div class="composer-meta">
-              <div class="composer-hint">Enter 发送，Shift+Enter 换行</div>
-              <div id="requestStatus" class="request-status idle">状态：就绪</div>
-            </div>
-            <div class="composer-bar">
-              <button type="button" id="showTraceBtn" class="ghost-btn" aria-controls="tracePanel" disabled>查看上次链路</button>
-              <button type="submit" id="sendBtn" class="primary-btn">发送请求</button>
-            </div>
-          </form>
+      <section id="welcome-inputs" class="report-card report-section">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">输入源与边界</p>
+            <h3>把当前系统真正依赖的输入、边界和阶段目标讲清楚</h3>
+          </div>
+          <p class="section-note">这一页不再堆叠欢迎话术，而是像报告页一样先交代来源、约束和目标。</p>
         </div>
-      </div>
-    </section>
 
-    <section id="docsView" class="page-view hidden">
-      <section class="page-heading">
-        <div>
-          <p class="eyebrow">项目文档</p>
-          <h2>README 双语展示</h2>
-          <p class="section-note">直接读取仓库里的 README，让文档和实际代码保持同源。</p>
+        <div class="analysis-grid three-up">
+          <article v-for="card in welcomeInputCards" :key="card.id" class="analysis-card">
+            <h4>{{ card.title }}</h4>
+            <p>{{ card.description }}</p>
+            <ul class="bullet-list">
+              <li v-for="item in card.items" :key="item">{{ item }}</li>
+            </ul>
+          </article>
         </div>
       </section>
 
-      <div class="docs-layout">
-        <aside class="column column-side">
-          <section class="panel docs-info-panel">
-            <div class="panel-heading">
-              <div>
-                <p class="eyebrow">文档摘要</p>
-                <h3>当前阅读状态</h3>
-              </div>
-            </div>
-            <div class="status-list">
-              <div class="status-row">
-                <span>语言</span>
-                <strong id="docsInfoLanguage">中文</strong>
-              </div>
-              <div class="status-row">
-                <span>来源</span>
-                <strong id="docsInfoSource">README.md</strong>
-              </div>
-              <div class="status-row">
-                <span>同步状态</span>
-                <strong id="docsInfoStatus">未加载</strong>
-              </div>
-            </div>
-            <p class="section-note">切换语言时会重新请求对应的 README 文件，不额外维护副本。</p>
-          </section>
+      <section id="welcome-workflow" class="report-card report-section">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">流程分析</p>
+            <h3>用一个轻交互步骤区梳理当前工作台的最短路径</h3>
+          </div>
+          <p class="section-note">点击左侧步骤，可切换当前步骤的输入、输出和注意点。</p>
+        </div>
 
-          <section class="panel docs-outline-panel">
-            <div class="panel-heading">
-              <div>
-                <p class="eyebrow">阅读导航</p>
-                <h3>章节索引</h3>
-              </div>
-            </div>
-            <label class="control-field outline-filter-field" for="docsOutlineFilter">
-              <span>筛选标题</span>
-              <input id="docsOutlineFilter" type="search" placeholder="输入章节关键词">
-            </label>
-            <div id="docsOutline" class="outline-list">
-              <p class="empty-copy">加载文档后，这里会显示标题导航。</p>
-            </div>
-          </section>
+        <div class="workflow-layout">
+          <div class="workflow-tabs" role="tablist" aria-label="工作流步骤">
+            <button
+              v-for="step in workflowSteps"
+              :key="step.id"
+              type="button"
+              class="workflow-tab"
+              :class="{ active: activeWorkflowStepId === step.id }"
+              @click="activeWorkflowStepId = step.id"
+            >
+              <span>{{ step.label }}</span>
+              <strong>{{ step.title }}</strong>
+            </button>
+          </div>
 
-          <section class="panel docs-actions-panel">
-            <div class="panel-heading">
-              <div>
-                <p class="eyebrow">快捷操作</p>
-                <h3>从文档继续工作</h3>
-              </div>
-            </div>
-            <div class="action-list">
-              <button type="button" id="docsToChatBtn" class="primary-btn">带着文档去聊天</button>
-              <button type="button" id="docsRefreshBtn" class="ghost-btn">重新加载文档</button>
-            </div>
-          </section>
-        </aside>
+          <article class="workflow-detail">
+            <p class="eyebrow">当前步骤</p>
+            <h4>{{ activeWorkflowStep.title }}</h4>
+            <p class="section-note">{{ activeWorkflowStep.description }}</p>
 
-        <div class="column column-main">
-          <section class="panel docs-toolbar">
-            <div class="docs-toolbar-main">
-              <p class="eyebrow">README Viewer</p>
-              <h3 id="docsTitle">项目说明</h3>
-              <p id="docsMeta" class="section-note">点击“展示文档”后会直接加载仓库 README。</p>
-            </div>
-            <div class="docs-toolbar-side">
-              <div class="language-switch" role="tablist" aria-label="文档语言">
-                <button type="button" class="lang-btn active" data-docs-language="zh" aria-selected="true">中文</button>
-                <button type="button" class="lang-btn" data-docs-language="en" aria-selected="false">English</button>
+            <div class="detail-grid">
+              <div class="detail-card">
+                <span>输入</span>
+                <strong>{{ activeWorkflowStep.input }}</strong>
               </div>
-              <div class="docs-stats" aria-label="文档阅读状态">
-                <div class="docs-stat">
-                  <span>章节</span>
-                  <strong id="docsHeadingCount">0</strong>
-                </div>
-                <div class="docs-stat">
-                  <span>预计阅读</span>
-                  <strong id="docsReadingTime">--</strong>
-                </div>
-                <div class="docs-stat">
-                  <span>进度</span>
-                  <strong id="docsProgressText">0%</strong>
-                </div>
-              </div>
-              <div class="docs-progress">
-                <div class="docs-progress-track">
-                  <div id="docsProgressBar" class="docs-progress-bar"></div>
-                </div>
+              <div class="detail-card">
+                <span>输出</span>
+                <strong>{{ activeWorkflowStep.output }}</strong>
               </div>
             </div>
-          </section>
 
-          <article id="docsArticle" class="panel docs-article">
-            <div class="docs-placeholder">
-              <p>点击“展示文档”加载仓库 README。</p>
+            <div class="note-card">
+              <strong>注意点</strong>
+              <p>{{ activeWorkflowStep.note }}</p>
             </div>
           </article>
         </div>
+      </section>
+
+      <section id="welcome-compare" class="report-card report-section">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">核心对比</p>
+            <h3>当前重点仍是 Ollama 与 OpenVINO 的本地路由差异</h3>
+          </div>
+          <p class="section-note">这不是营销式“功能大战”，而是把两条后端路线的定位、优点和约束说清楚。</p>
+        </div>
+
+        <div class="analysis-grid two-up">
+          <article v-for="card in backendComparison" :key="card.id" class="compare-card">
+            <div class="compare-head">
+              <div>
+                <p class="eyebrow">{{ card.name }}</p>
+                <h4>{{ card.emphasis }}</h4>
+              </div>
+              <span class="compare-tag">{{ card.name }}</span>
+            </div>
+            <p>{{ card.principle }}</p>
+
+            <div class="compare-columns">
+              <div>
+                <span class="mini-label">优势</span>
+                <ul class="bullet-list">
+                  <li v-for="item in card.advantages" :key="item">{{ item }}</li>
+                </ul>
+              </div>
+              <div>
+                <span class="mini-label">局限</span>
+                <ul class="bullet-list muted">
+                  <li v-for="item in card.limits" :key="item">{{ item }}</li>
+                </ul>
+              </div>
+            </div>
+
+            <div class="note-card compact">
+              <strong>这张卡想表达什么</strong>
+              <p>{{ card.linkage }}</p>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section id="welcome-run" class="report-card report-section">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">运行说明与预留位</p>
+            <h3>最后一节只保留“怎么接着用”和“未来往哪扩”两类信息</h3>
+          </div>
+          <p class="section-note">不堆砌假能力，重点是把当前入口、最小检查顺序和后续扩展位放在同一页收口。</p>
+        </div>
+
+        <div class="analysis-grid two-up">
+          <div class="stack-grid">
+            <article v-for="card in runGuideCards" :key="card.id" class="path-card">
+              <h4>{{ card.title }}</h4>
+              <code>{{ card.path }}</code>
+              <p>{{ card.description }}</p>
+            </article>
+          </div>
+
+          <div class="stack-grid">
+            <article v-for="card in reserveCards" :key="card.id" class="reserve-card">
+              <div class="reserve-head">
+                <h4>{{ card.title }}</h4>
+                <span>{{ card.status }}</span>
+              </div>
+              <p>{{ card.description }}</p>
+            </article>
+          </div>
+        </div>
+      </section>
+    </section>
+
+    <section v-show="currentView === 'chat'" class="page-view page-view-chat">
+      <section id="chat-runtime" class="report-card view-intro-card">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">会话工作台</p>
+            <h2>把请求路由、健康状态、聊天记录和补丁确认收在同一套干净界面里。</h2>
+            <p class="section-note">保留 `chat / health / runtime / patch` 的基本能力，但不再把每块都做成同等视觉声量。</p>
+          </div>
+        </div>
+
+        <div class="analysis-grid three-up">
+          <article class="analysis-card">
+            <h4>当前路由</h4>
+            <div class="status-rows">
+              <div><span>主后端</span><strong>{{ runtimeSummary.backend }}</strong></div>
+              <div><span>模型档位</span><strong>{{ runtimeSummary.model }}</strong></div>
+              <div><span>回退链路</span><strong>{{ runtimeSummary.fallback }}</strong></div>
+            </div>
+            <p>{{ runtimeSummary.hint }}</p>
+          </article>
+
+          <article class="analysis-card">
+            <h4>请求偏好</h4>
+            <div class="control-stack">
+              <label class="control-field">
+                <span>后端</span>
+                <select v-model="selectedBackend" :disabled="isSubmitting" @change="updateRuntimeSummaryFromOptions">
+                  <option v-for="option in backendOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
+                </select>
+              </label>
+              <label class="control-field">
+                <span>模型档位</span>
+                <select v-model="selectedModelProfile" :disabled="isSubmitting" @change="updateRuntimeSummaryFromOptions">
+                  <option v-for="option in modelProfileOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
+                </select>
+              </label>
+            </div>
+          </article>
+
+          <article class="analysis-card">
+            <h4>系统健康</h4>
+            <div class="status-rows">
+              <div><span>应用</span><strong>{{ healthState.spring }}</strong></div>
+              <div><span>Ollama</span><strong>{{ healthState.ollama }}</strong></div>
+              <div><span>OpenVINO</span><strong>{{ healthState.openvino }}</strong></div>
+            </div>
+            <div class="inline-actions">
+              <button type="button" class="ghost-btn" :disabled="isHealthChecking" @click="refreshHealth()">
+                {{ isHealthChecking ? "检查中..." : "刷新健康" }}
+              </button>
+              <button type="button" class="ghost-btn" :disabled="isResettingSession" @click="resetSession()">
+                {{ isResettingSession ? "重置中..." : "重置会话" }}
+              </button>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section id="chat-signals" class="report-card report-section muted-section">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">鸿栀预留位</p>
+            <h3>语音、设备、数字人和情绪结果都保留结构入口，但不伪造后端能力</h3>
+          </div>
+          <p class="section-note">这些区域当前只承担信息架构角色，等后端接口齐备后再接通。</p>
+        </div>
+
+        <div class="analysis-grid two-up">
+          <article v-for="card in signalCards" :key="card.id" class="signal-card">
+            <span class="signal-label">{{ card.label }}</span>
+            <h4>{{ card.title }}</h4>
+            <p>{{ card.description }}</p>
+          </article>
+        </div>
+      </section>
+
+      <section id="chat-conversation" class="conversation-layout">
+        <div class="report-card conversation-card">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">对话区</p>
+              <h3>当前会话</h3>
+            </div>
+            <div class="tool-chip-row" v-if="lastToolsUsed.length">
+              <span v-for="tool in lastToolsUsed" :key="tool" class="tool-chip">{{ tool }}</span>
+            </div>
+          </div>
+
+          <section id="chatLog" class="chat-log">
+            <article v-for="message in chatMessages" :key="message.id" :class="['message', message.role, { pending: message.pending }]">
+              <div class="message-badge">{{ message.label }}</div>
+              <div class="message-body prose" v-html="message.html"></div>
+            </article>
+          </section>
+
+          <form class="composer" @submit.prevent="submitChat">
+            <label for="messageInput" class="sr-only">消息输入框</label>
+            <textarea
+              id="messageInput"
+              v-model="composerText"
+              rows="5"
+              :disabled="isSubmitting"
+              placeholder="例如：请先读 README，再用中文说明当前前端还缺哪些最小接口。"
+              @keydown="handleComposerKeydown"
+            ></textarea>
+            <div class="composer-meta">
+              <div class="composer-hint">Enter 发送，Shift + Enter 换行</div>
+              <div class="request-status" :class="requestStatusTone">{{ requestStatusText }}</div>
+            </div>
+            <div class="composer-actions">
+              <button type="button" class="ghost-btn" :disabled="!lastTrace.length" @click="traceVisible = !traceVisible">
+                {{ traceVisible ? "收起执行链路" : traceButtonText }}
+              </button>
+              <button type="submit" class="primary-btn" :disabled="isSubmitting">
+                {{ isSubmitting ? "发送中..." : "发送请求" }}
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <aside class="conversation-side">
+          <section class="report-card side-card">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">快捷提问</p>
+                <h3>联调入口</h3>
+              </div>
+            </div>
+            <div class="suggestion-list">
+              <button v-for="item in chatSuggestions" :key="item.id" type="button" class="suggestion-card" @click="useSuggestion(item.message)">
+                {{ item.label }}
+              </button>
+            </div>
+          </section>
+
+          <section v-show="traceVisible" class="report-card side-card">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">执行链路</p>
+                <h3>最近一次请求</h3>
+              </div>
+            </div>
+            <pre class="trace-block">{{ traceText }}</pre>
+          </section>
+
+          <section id="chat-patch" class="report-card side-card" v-if="pendingPatch || patchHistory.length">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">补丁确认</p>
+                <h3>{{ pendingPatch ? "待确认变更" : "最近补丁记录" }}</h3>
+              </div>
+              <button v-if="pendingPatch" type="button" class="primary-btn" :disabled="isApplyingPatch" @click="applyPatch()">
+                {{ isApplyingPatch ? "应用中..." : "应用补丁" }}
+              </button>
+            </div>
+
+            <div v-if="pendingPatch" class="patch-preview">
+              <div class="patch-meta" v-if="patchMetaItems.length">
+                <span v-for="item in patchMetaItems" :key="item" class="patch-meta-item">{{ item }}</span>
+              </div>
+
+              <div v-if="pendingPatch.search || pendingPatch.replace" class="patch-diff">
+                <section class="diff-card remove">
+                  <div class="diff-label">原始片段</div>
+                  <pre class="diff-body">{{ pendingPatch.search || "(空)" }}</pre>
+                </section>
+                <section class="diff-card add">
+                  <div class="diff-label">替换片段</div>
+                  <pre class="diff-body">{{ pendingPatch.replace || "(空)" }}</pre>
+                </section>
+              </div>
+
+              <div v-if="pendingPatch.preview" class="code-block">
+                <div class="code-block-head"><span>PATCH PREVIEW</span></div>
+                <pre><code>{{ pendingPatch.preview }}</code></pre>
+              </div>
+            </div>
+
+            <div v-if="patchHistory.length" class="patch-history-list">
+              <article v-for="entry in patchHistory" :key="entry.id" class="patch-history-item" :class="getPatchHistoryTone(entry.success)">
+                <span class="patch-history-badge">{{ getPatchHistoryLabel(entry.success) }}</span>
+                <div>
+                  <div class="patch-history-path">{{ entry.path }}</div>
+                  <div class="patch-history-message">{{ entry.message }}</div>
+                </div>
+                <time class="patch-history-time">{{ entry.time }}</time>
+              </article>
+            </div>
+          </section>
+        </aside>
+      </section>
+    </section>
+
+    <section v-show="currentView === 'docs'" class="page-view page-view-docs">
+      <section id="docs-overview" class="report-card view-intro-card">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">项目手册</p>
+            <h2>README 双语手册页改成更适合展示、评审和连续阅读的蓝白报告结构。</h2>
+            <p class="section-note">保留同源内容和阅读进度，只收束掉视觉噪声，让层级、代码块、列表和引用块更稳。</p>
+          </div>
+          <div class="docs-toolbar">
+            <div class="language-switch" role="tablist" aria-label="文档语言">
+              <button
+                v-for="item in docsLanguages"
+                :key="item.id"
+                type="button"
+                class="lang-btn"
+                :class="{ active: docsLanguage === item.id }"
+                :aria-selected="String(docsLanguage === item.id)"
+                @click="loadDocs(item.id, { resetScroll: true })"
+              >
+                {{ item.label }}
+              </button>
+            </div>
+
+            <div class="docs-overview-grid">
+              <article class="metric-card compact">
+                <span>来源</span>
+                <strong>{{ docsSourceName }}</strong>
+                <p>{{ docsStatus }}</p>
+              </article>
+              <article class="metric-card compact">
+                <span>章节</span>
+                <strong>{{ docsHeadings.length }}</strong>
+                <p>从 README 自动提取</p>
+              </article>
+              <article class="metric-card compact">
+                <span>预计阅读</span>
+                <strong>{{ docsState.readingTime }}</strong>
+                <p>阅读进度 {{ docsProgressText }}</p>
+              </article>
+            </div>
+
+            <div class="inline-actions">
+              <button type="button" class="primary-btn" @click="enterChatFromDocs()">带着手册去工作台</button>
+              <button type="button" class="ghost-btn" @click="loadDocs(docsLanguage, { force: true, resetScroll: true })">重新加载手册</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="docs-summary-strip">
+          <article v-if="docsSummaryCards.length" v-for="card in docsSummaryCards" :key="card.anchor" class="docs-summary-card">
+            <button type="button" class="docs-summary-button" @click="scrollToSection(card.anchor)">
+              <span>{{ card.index }}</span>
+              <strong>{{ card.title }}</strong>
+              <small>{{ card.levelLabel }}</small>
+            </button>
+          </article>
+          <article v-else class="docs-summary-card docs-summary-card-empty">
+            <strong>章节摘要会在 README 加载完成后生成</strong>
+            <p>这里会优先展示当前文档的前几个核心章节，方便投屏和扫读。</p>
+          </article>
+        </div>
+      </section>
+
+      <div id="docs-reader" class="docs-reader-layout">
+        <section class="report-card docs-info-card">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">阅读摘要</p>
+              <h3>当前阅读状态</h3>
+            </div>
+          </div>
+
+          <div class="status-rows">
+            <div><span>语言</span><strong>{{ getDocsLanguageLabel(docsLanguage) }}</strong></div>
+            <div><span>来源</span><strong>{{ docsSourceName }}</strong></div>
+            <div><span>同步</span><strong>{{ docsStatus }}</strong></div>
+          </div>
+
+          <div class="note-card compact">
+            <strong>读图提示</strong>
+            <p>顶部阅读进度条会随着滚动平滑更新。左侧导航负责跨页跳转，当前侧栏负责文档筛选和状态说明。</p>
+          </div>
+
+          <div class="docs-pipeline">
+            <article v-for="step in docsPipelineSteps" :key="step.id" class="docs-pipeline-card">
+              <span>{{ step.title }}</span>
+              <p>{{ step.description }}</p>
+            </article>
+          </div>
+        </section>
+
+        <article id="docsArticle" class="report-card docs-article">
+          <div class="docs-reader-shell">
+            <div v-if="docsState.renderMode === 'placeholder'" class="docs-placeholder"><p>点击“阅读手册”后，将直接读取仓库中的 README。</p></div>
+            <div v-else-if="docsState.renderMode === 'loading'" class="docs-loading"><p>正在加载 {{ docsSourceName }} ...</p></div>
+            <div v-else-if="docsState.renderMode === 'error'" class="docs-error"><p>{{ docsState.errorMessage }}</p></div>
+            <div v-else class="docs-content prose" v-html="docsState.html"></div>
+          </div>
+        </article>
       </div>
     </section>
   </main>
+
+  <button v-show="showBackToTop" type="button" class="back-top" @click="scrollToTop()">回到顶部</button>
+
+  <div class="toast-stack" aria-live="polite" aria-atomic="true">
+    <div v-for="toast in toasts" :key="toast.id" class="toast" :class="[toast.tone, { visible: toast.visible }]">
+      {{ toast.message }}
+    </div>
+  </div>
 </div>
 
-<div id="toastStack" class="toast-stack" aria-live="polite" aria-atomic="true"></div>
-
-<script src="/app.js"></script>
+<script defer src="/vendor/vue.global.prod.js"></script>
+<script defer src="/scripts/core.js"></script>
+<script defer src="/scripts/markdown.js"></script>
+<script defer src="/scripts/vue/workspace-app.js"></script>
+<script defer src="/app.js"></script>
 </body>
 </html>
