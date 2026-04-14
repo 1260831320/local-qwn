@@ -4,9 +4,9 @@ This file applies to the entire repository.
 
 ## Mission
 
-This repository is a local-first large-model application prototype that is now explicitly evolving toward the `Hongzhi` product direction.
+This repository is a local-first large-model application prototype that is evolving toward the `Hongzhi` product direction.
 
-Current near-term purpose:
+Near-term purpose:
 
 - verify local deployment and local inference of large models
 - verify controlled tool execution and bounded agent behavior
@@ -22,9 +22,39 @@ Long-term direction:
 Do not claim that the repository already satisfies the full A22 scope.
 Treat A22 as the architectural destination, not the current delivery state.
 
+## Current Collaboration Mode
+
+The repository is no longer treated as a strictly split frontend-only vs backend-only workflow.
+
+Default development mode is now:
+
+- full-stack integration first
+- contract-first when frontend and backend interact
+- scoped changes instead of broad refactors
+- keep visual, backend, DTO, and runtime changes aligned in the same task when needed
+
+What this means in practice:
+
+- a single task may touch frontend, backend, and tests together if that is the smallest correct way to finish the integration work
+- do not preserve an artificial split if it slows down real front-back debugging
+- still avoid unrelated rewrites; keep each task coherent and reviewable
+
+## Nested AGENTS
+
+Use these more specific instruction files when working in their subtrees:
+
+- frontend:
+  - `src/main/resources/static/AGENTS.md`
+- backend main code:
+  - `src/main/java/cn/zzy/qwen/AGENTS.md`
+- backend tests:
+  - `src/test/java/cn/zzy/qwen/AGENTS.md`
+
+Root rules still apply unless a nested file narrows them.
+
 ## Strategic Constraints
 
-These constraints should stay in force unless the user explicitly changes them:
+These constraints stay in force unless the user explicitly changes them:
 
 - local deployment first
 - privacy-friendly design
@@ -44,9 +74,9 @@ Do not introduce cloud-only dependencies, paid API lock-in, or unrestricted shel
 
 ### Current frontend
 
-The frontend is still served from `src/main/resources/static`, but it is no longer a single monolithic vanilla script.
+The frontend is served from `src/main/resources/static`.
 
-Current frontend architecture:
+Current architecture:
 
 - entry:
   - `src/main/resources/static/index.html`
@@ -83,7 +113,7 @@ Current UX shape:
 ### Current backend
 
 - backend code lives in `src/main/java/cn/zzy/qwen`
-- test code lives in `src/test/java/cn/zzy/qwen`
+- tests live in `src/test/java/cn/zzy/qwen`
 - machine and runtime config lives in:
   - `src/main/resources/application.yml`
   - `src/main/resources/machines/common.yml`
@@ -104,7 +134,7 @@ Current verified OpenVINO path:
 
 Important limitation:
 
-- the current OpenVINO path is good for lightweight writing and assistant tasks
+- the current OpenVINO path is useful for lightweight writing and assistant tasks
 - it is not yet a drop-in replacement for the coding-oriented Ollama path
 
 ## Existing Product Surface
@@ -138,137 +168,68 @@ Safety rules already in force:
 
 Do not weaken these boundaries while refactoring.
 
-## Frontend and Backend Split Guidance
+## Integration Rules
 
-The project is still a monorepo, but ownership boundaries remain strict.
+When a task crosses the frontend-backend boundary:
 
-### Frontend thread ownership
+- change the smallest contract surface that solves the problem
+- keep request / response DTOs explicit
+- update tests when controller or service behavior changes
+- keep frontend adapters aligned with real backend payloads
+- avoid fake UI states for unavailable backend capabilities
 
-The frontend thread owns:
-
-- `src/main/resources/static/**`
-- browser interaction flow
-- information architecture
-- visual design and report-style presentation
-- docs-view rendering quality
-- frontend-side runtime controls
-- frontend API adapters and response handling
-
-The frontend thread may propose backend contract changes, but it must not silently rewrite backend business logic.
-
-### Backend thread ownership
-
-The backend thread owns:
-
-- `src/main/java/**`
-- `src/test/java/**`
-- `src/main/resources/application.yml`
-- `src/main/resources/machines/**`
-- `scripts/openvino/**`
-- API contracts
-- persistence
-- backend routing
-- safety policy
-- model integration
-
-The backend thread should avoid cosmetic frontend rewrites except for minimal contract plumbing that is impossible to avoid.
-
-### Shared contract surface
-
-Changes affecting both threads must remain contract-first:
+Shared contract surfaces include:
 
 - request / response DTOs
-- controller endpoint shape
+- controller endpoint shapes
 - health payload
 - runtime-options payload
-- patch-preview payload
+- patch-preview / patch-apply payload
 - docs payload
 
-If a backend contract changes:
+If a contract changes:
 
-- update DTOs and backend tests first
-- document the contract in code or a short repo doc
-- keep the payload stable enough for frontend consumption
-
-If a frontend need requires a backend change:
-
-- request the smallest contract change that solves the problem
-- avoid broad backend rewrites for presentation-only needs
-
-## Current Engineering Priorities
-
-### Immediate frontend priorities
-
-1. Keep the Vue SPA structure maintainable.
-2. Preserve a unified blue-white report-style visual language across `welcome / chat / docs`.
-3. Keep README rendering and reading progress smooth and robust.
-4. Continue reserving honest multimodal slots without faking unavailable capabilities.
-5. Preserve Chinese-first product expression unless there is a strong reason not to.
-
-### Immediate backend priorities
-
-1. Persist conversation sessions and pending patch state across restarts.
-2. Replace text-only pending patch parsing with a structured patch preview payload.
-3. Add explicit create-file confirmation flow aligned with patch trust boundaries.
-4. Improve prompt robustness so model action JSON is more stable.
-5. Add a project summary or code-map tool.
-6. Reduce `/api/health` latency where possible.
-
-### A22-oriented architectural priorities
-
-All new work should preserve room for:
-
-1. clean interfaces for future `ASR`, `TTS`, avatar driving, and emotion-state modules
-2. local-inference assumptions for future multimodal components
-3. a psychology knowledge base and future intervention loop:
-   - perception
-   - cognition
-   - intervention
-   - re-evaluation
-4. avoiding a pure text-chatbot architecture lock-in
-5. extensible APIs and session-state models for future multimodal data
+- update Java code and tests together
+- update frontend assumptions in the same task when necessary
+- reflect important new facts in `README.md`, `README.en.md`, or `AGENTS.md`
 
 ## Working Rules
 
-- daily integration should ultimately land on `develop`
+- `develop` is the default integration base for new work
 - `master` is the stable or release branch
-- use short-lived feature branches for task work
+- start new task work from `develop`
+- create short-lived feature branches when needed for isolation or review
 - do not create long-lived device-specific branches
 - do not leave Spring Boot running on port `8080` after verification
 - if local runtime verification starts the app, stop it before handoff
 - `README.md` and `README.en.md` remain the docs-view content source of truth
 - session memory is currently in-memory only unless code explicitly changes that
-- when major task facts change, update `AGENTS.md`
-
-Note:
-
-- `AGENTS.md` is the current instruction source of truth for future threads
-- the legacy `AGENT.md` filename should not be reintroduced
+- when major task facts change, update the relevant `AGENTS.md`
 
 ## Verification Expectations
 
 Minimum checks after meaningful changes:
 
-- frontend syntax checks:
+- frontend syntax:
   - `node --check src/main/resources/static/app.js`
   - `node --check src/main/resources/static/scripts/core.js`
   - `node --check src/main/resources/static/scripts/markdown.js`
   - `node --check src/main/resources/static/scripts/vue/workspace-app.js`
-- backend regression check on Windows:
+- backend regression:
   - `.\mvnw.cmd test`
 
-When a task affects runtime behavior, also verify the running app if practical:
+When a task affects runtime behavior, also verify if practical:
 
 - `GET /api/health`
-- the relevant UI flow
-- the relevant API contract
+- relevant UI flow
+- relevant API contract
 
 ## Resume Guidance
 
-If a new thread continues from this repository after `v1.0.0`, the best near-term sequence is:
+If a new Codex thread starts from this repository now, the best sequence is:
 
-1. keep the current local-model validation path working
-2. keep frontend and backend separation boundaries clean
-3. continue stabilizing the Vue workspace and README-driven docs experience
-4. return to backend session persistence and structured patch preview
-5. keep shaping the system so it can later grow into the `Hongzhi` A22 emotional companionship product
+1. read root `AGENTS.md`
+2. read the nested `AGENTS.md` for the subtree you will touch first
+3. start from `develop`
+4. inspect current runtime, frontend state, and active contracts before editing
+5. treat the next tasks as integrated front-back work, not artificial split work
