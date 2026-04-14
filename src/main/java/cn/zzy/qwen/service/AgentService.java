@@ -2,6 +2,7 @@ package cn.zzy.qwen.service;
 
 import cn.zzy.qwen.model.ChatResponse;
 import cn.zzy.qwen.model.AgentAction;
+import cn.zzy.qwen.model.ChatRequest;
 import cn.zzy.qwen.model.ConversationMessage;
 import cn.zzy.qwen.model.PendingPatch;
 import cn.zzy.qwen.model.PatchApplyRequest;
@@ -19,65 +20,86 @@ import java.util.UUID;
 public class AgentService {
     private static final int MAX_TOOL_STEPS = 4;
 
-    private final OllamaClient ollamaClient;
+    private final ModelBackendRouter modelBackendRouter;
     private final ToolRegistry toolRegistry;
     private final AgentActionParser actionParser;
     private final AgentPromptFactory promptFactory;
     private final ToolTraceFormatter toolTraceFormatter;
     private final ConversationMemoryService conversationMemoryService;
     private final PendingPatchService pendingPatchService;
+    private final ModelSelectionService modelSelectionService;
 
     public AgentService(
-            OllamaClient ollamaClient,
+            ModelBackendRouter modelBackendRouter,
             ToolRegistry toolRegistry,
             AgentActionParser actionParser,
             AgentPromptFactory promptFactory,
             ToolTraceFormatter toolTraceFormatter,
             ConversationMemoryService conversationMemoryService,
-            PendingPatchService pendingPatchService
+            PendingPatchService pendingPatchService,
+            ModelSelectionService modelSelectionService
     ) {
-        this.ollamaClient = ollamaClient;
+        this.modelBackendRouter = modelBackendRouter;
         this.toolRegistry = toolRegistry;
         this.actionParser = actionParser;
         this.promptFactory = promptFactory;
         this.toolTraceFormatter = toolTraceFormatter;
         this.conversationMemoryService = conversationMemoryService;
         this.pendingPatchService = pendingPatchService;
+        this.modelSelectionService = modelSelectionService;
     }
 
-    public ChatResponse chat(String sessionId, String userMessage) {
+    public ChatResponse chat(ChatRequest request) {
+        String sessionId = request.sessionId();
+        String userMessage = request.message();
         List<String> steps = new ArrayList<>();
         List<String> toolsUsed = new ArrayList<>();
         StringBuilder transcript = new StringBuilder();
         PendingPatch pendingPatch = null;
         PendingPatch approvedPatchForTurn = null;
         List<ConversationMessage> history = conversationMemoryService.history(sessionId);
+        ResolvedModelSelection activeSelection = modelSelectionService.select(
+                userMessage,
+                request.backend(),
+                request.modelProfile()
+        );
+        boolean fallbackUsed = false;
+
+        steps.add(formatSelectionStep("request", activeSelection));
 
         for (int i = 0; i < MAX_TOOL_STEPS; i++) {
-            String modelOutput = ollamaClient.generate(
-                    promptFactory.buildPlanningPrompt(userMessage, transcript.toString(), toolRegistry, history)
+            ModelGeneration generation = modelBackendRouter.generate(
+                    promptFactory.buildPlanningPrompt(userMessage, transcript.toString(), toolRegistry, history),
+                    activeSelection
             );
-            steps.add("model[" + (i + 1) + "]: " + modelOutput);
+            activeSelection = generation.selection();
+            fallbackUsed = fallbackUsed || generation.fallbackUsed();
+            if (generation.fallbackUsed()) {
+                steps.add(formatSelectionStep("fallback", activeSelection));
+            }
+            String modelOutput = generation.response();
+            steps.add("model[" + (i + 1) + "][" + activeSelection.backend() + "/" + activeSelection.modelProfile() + "]: "
+                    + modelOutput);
 
             AgentAction action = actionParser.parse(modelOutput);
             if (action == null) {
                 conversationMemoryService.append(sessionId, "user", userMessage);
                 conversationMemoryService.append(sessionId, "assistant", modelOutput);
-                return new ChatResponse(modelOutput, steps, toolsUsed, pendingPatch);
+                return buildResponse(modelOutput, steps, toolsUsed, pendingPatch, generation, fallbackUsed);
             }
 
             if ("answer".equalsIgnoreCase(action.type())) {
                 String answer = (action.answer() == null || action.answer().isBlank()) ? modelOutput : action.answer();
                 conversationMemoryService.append(sessionId, "user", userMessage);
                 conversationMemoryService.append(sessionId, "assistant", answer);
-                return new ChatResponse(answer, steps, toolsUsed, pendingPatch);
+                return buildResponse(answer, steps, toolsUsed, pendingPatch, generation, fallbackUsed);
             }
 
             if (!"tool".equalsIgnoreCase(action.type()) || action.tool() == null || action.arguments() == null) {
                 String answer = "The model returned an invalid action format.";
                 conversationMemoryService.append(sessionId, "user", userMessage);
                 conversationMemoryService.append(sessionId, "assistant", answer);
-                return new ChatResponse(answer, steps, toolsUsed, pendingPatch);
+                return buildResponse(answer, steps, toolsUsed, pendingPatch, generation, fallbackUsed);
             }
 
             ToolResult result = executeToolAction(action, approvedPatchForTurn);
@@ -106,11 +128,19 @@ public class AgentService {
             }
         }
 
-        String answer = ollamaClient.generate(promptFactory.buildFallbackPrompt(userMessage, transcript.toString()));
-        steps.add("final: " + answer);
+        ModelGeneration fallbackGeneration = modelBackendRouter.generate(
+                promptFactory.buildFallbackPrompt(userMessage, transcript.toString()),
+                activeSelection
+        );
+        fallbackUsed = fallbackUsed || fallbackGeneration.fallbackUsed();
+        if (fallbackGeneration.fallbackUsed()) {
+            steps.add(formatSelectionStep("fallback", fallbackGeneration.selection()));
+        }
+        String answer = fallbackGeneration.response();
+        steps.add("final[" + fallbackGeneration.backend() + "/" + fallbackGeneration.modelProfile() + "]: " + answer);
         conversationMemoryService.append(sessionId, "user", userMessage);
         conversationMemoryService.append(sessionId, "assistant", answer);
-        return new ChatResponse(answer, steps, toolsUsed, pendingPatch);
+        return buildResponse(answer, steps, toolsUsed, pendingPatch, fallbackGeneration, fallbackUsed);
     }
 
     public PatchApplyResponse applyPatch(PatchApplyRequest request) {
@@ -153,5 +183,35 @@ public class AgentService {
         return pendingPatch.path().equals(arguments.get("path"))
                 && pendingPatch.search().equals(arguments.get("search"))
                 && pendingPatch.replace().equals(arguments.getOrDefault("replace", ""));
+    }
+
+    private ChatResponse buildResponse(
+            String answer,
+            List<String> steps,
+            List<String> toolsUsed,
+            PendingPatch pendingPatch,
+            ModelGeneration generation,
+            boolean fallbackUsed
+    ) {
+        return new ChatResponse(
+                answer,
+                steps,
+                toolsUsed,
+                pendingPatch,
+                generation.backend(),
+                generation.modelProfile(),
+                generation.model(),
+                generation.selectionMode(),
+                generation.selectionReason(),
+                fallbackUsed
+        );
+    }
+
+    private String formatSelectionStep(String phase, ResolvedModelSelection selection) {
+        return "selection[" + phase + "]: backend=" + selection.backend()
+                + ", profile=" + selection.modelProfile()
+                + ", model=" + selection.model()
+                + ", mode=" + selection.selectionMode()
+                + ", reason=" + selection.selectionReason();
     }
 }

@@ -1,0 +1,28 @@
+qwen:
+  backend:
+    type: openvino
+    fallback-type: ollama
+  ollama:
+    base-url: http://127.0.0.1:11434
+    model: qwen2.5-coder:14b
+    timeout-seconds: 180
+  openvino:
+    python-exe: C:/Users/12608/AppData/Local/Programs/Python/Python312/python.exe
+    script-path: ${QWEN_OPENVINO_SCRIPT_PATH:${user.dir}/scripts/openvino/run_genai.py}
+    model-dir: C:/Users/12608/models/qwen2.5-1.5b-instruct-int4-ov
+    device: NPU
+    max-new-tokens: 180
+    timeout-seconds: 180
+    health-prompt: Reply with OK.
+  models:
+    auto-code-profile: ollama-coder
+    auto-general-profile: openvino-lite
+    default-profile-by-backend:
+      ollama: ollama-coder
+      openvino: openvino-lite
+    profiles:
+      openvino-lite:
+        backend: openvino
+        model: C:/Users/12608/models/qwen2.5-1.5b-instruct-int4-ov
+        display-name: OpenVINO Lite
+        description: Lightweight local writing profile on the NPU.

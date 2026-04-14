@@ -2,11 +2,15 @@ package cn.zzy.qwen.controller;
 
 import cn.zzy.qwen.model.ChatRequest;
 import cn.zzy.qwen.model.ChatResponse;
+import cn.zzy.qwen.model.DocsResponse;
 import cn.zzy.qwen.model.HealthResponse;
 import cn.zzy.qwen.model.PatchApplyRequest;
 import cn.zzy.qwen.model.PatchApplyResponse;
+import cn.zzy.qwen.model.RuntimeOptionsResponse;
 import cn.zzy.qwen.service.AgentService;
 import cn.zzy.qwen.service.HealthService;
+import cn.zzy.qwen.service.ProjectDocsService;
+import cn.zzy.qwen.service.RuntimeOptionsService;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -23,10 +27,19 @@ public class ChatController {
 
     private final AgentService agentService;
     private final HealthService healthService;
+    private final RuntimeOptionsService runtimeOptionsService;
+    private final ProjectDocsService projectDocsService;
 
-    public ChatController(AgentService agentService, HealthService healthService) {
+    public ChatController(
+            AgentService agentService,
+            HealthService healthService,
+            RuntimeOptionsService runtimeOptionsService,
+            ProjectDocsService projectDocsService
+    ) {
         this.agentService = agentService;
         this.healthService = healthService;
+        this.runtimeOptionsService = runtimeOptionsService;
+        this.projectDocsService = projectDocsService;
     }
 
     @GetMapping("/health")
@@ -34,9 +47,19 @@ public class ChatController {
         return healthService.health();
     }
 
+    @GetMapping("/runtime/options")
+    public RuntimeOptionsResponse runtimeOptions() {
+        return runtimeOptionsService.runtimeOptions();
+    }
+
+    @GetMapping("/docs/{language}")
+    public DocsResponse docs(@PathVariable String language) {
+        return projectDocsService.readme(language);
+    }
+
     @PostMapping("/chat")
     public ChatResponse chat(@Valid @RequestBody ChatRequest request) {
-        return agentService.chat(request.sessionId(), request.message());
+        return agentService.chat(request);
     }
 
     @PostMapping("/patch/apply")

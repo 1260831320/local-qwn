@@ -3,103 +3,597 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Qwen 控制台</title>
+  <title>鸿栀本地工作台</title>
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
-<div class="app-shell">
-  <aside class="sidebar">
-    <div class="brand">
-      <p class="eyebrow">LOCAL AGENT</p>
-      <h1>Qwen 控制台</h1>
-      <p class="muted">这是你本地千问的第一套外部能力层。对话、读文件、搜代码、改项目，都从受控工具链开始。</p>
-    </div>
+<div id="app" v-cloak class="app-shell">
+  <div class="reader-progress" :class="{ active: currentView === 'docs' }" aria-hidden="true">
+    <div class="reader-progress-bar" :style="{ transform: `scaleX(${docsState.progress / 100})` }"></div>
+  </div>
 
-    <section class="status-card">
-      <div class="status-row">
-        <span>运行时</span>
-        <strong>Spring + Ollama</strong>
-      </div>
-      <div class="status-row">
-        <span>模型</span>
-        <strong>qwen2.5-coder:14b</strong>
-      </div>
-      <div class="status-row">
-        <span>工作区</span>
-        <strong>Java_workSpace/Qwen</strong>
+  <aside class="app-sidebar">
+    <section class="sidebar-card sidebar-brand">
+      <div class="brand-mark">鸿</div>
+      <div>
+        <p class="eyebrow">HONGZHI LOCAL WORKSPACE</p>
+        <h1>鸿栀本地工作台</h1>
+        <p class="sidebar-copy">前端先服务于本地模型验证、文档同源阅读、受控工具与补丁确认。语音、数字人和情绪干预仍处于结构预留阶段。</p>
       </div>
     </section>
 
-    <section class="sidebar-block">
-      <h2>建议操作</h2>
-      <button class="suggestion" data-message="请列出项目根目录下的文件，并告诉我目前已经实现了哪些能力。请用中文回答。">概览当前项目</button>
-      <button class="suggestion" data-message="请读取 pom.xml，并简要解释当前项目架构。请用中文回答。">解释当前架构</button>
-      <button class="suggestion" data-message="请搜索 application.yml，并总结当前运行配置。请用中文回答。">检查运行配置</button>
-      <button class="suggestion" data-message="请生成一个 TODO.md，列出后端接下来最值得做的三项改进。请用中文回答。">生成下一步待办</button>
+    <nav class="sidebar-card sidebar-nav" aria-label="主导航">
+      <button
+        v-for="item in navItems"
+        :key="item.id"
+        type="button"
+        class="sidebar-nav-item"
+        :class="{ active: currentView === item.id }"
+        @click="switchView(item.id, { resetScroll: true, focusComposer: item.id === 'chat' })"
+      >
+        <span>{{ item.label }}</span>
+        <small>{{ item.note }}</small>
+      </button>
+    </nav>
+
+    <section class="sidebar-card sidebar-outline">
+      <div class="sidebar-card-head">
+        <div>
+          <p class="eyebrow">{{ currentOutlineEyebrow }}</p>
+          <h2>{{ currentOutlineTitle }}</h2>
+        </div>
+      </div>
+
+      <label v-if="currentView === 'docs'" class="sidebar-filter">
+        <span>筛选标题</span>
+        <input v-model="docsOutlineFilter" type="search" placeholder="输入章节关键字">
+      </label>
+
+      <div class="sidebar-outline-list">
+        <p v-if="currentView === 'docs' && docsHeadings.length && !filteredDocsHeadings.length" class="empty-copy">没有匹配当前关键字的章节。</p>
+        <p v-else-if="!currentOutlineItems.length" class="empty-copy">当前页面没有可导航的章节。</p>
+        <button
+          v-for="item in currentOutlineItems"
+          :key="item.anchor"
+          type="button"
+          class="outline-link"
+          :class="[{ active: currentActiveAnchor === item.anchor }, item.level ? `level-${Math.min(item.level, 3)}` : 'level-1']"
+          @click="scrollToSection(item.anchor)"
+        >
+          {{ item.text || item.label }}
+        </button>
+      </div>
+    </section>
+
+    <section class="sidebar-card sidebar-status">
+      <div class="sidebar-card-head">
+        <div>
+          <p class="eyebrow">当前状态</p>
+          <h2>运行摘要</h2>
+        </div>
+        <span class="status-badge" :class="healthState.visual">{{ healthBadgeLabel }}</span>
+      </div>
+
+      <div class="sidebar-metrics">
+        <article class="metric-box">
+          <span>主后端</span>
+          <strong>{{ runtimeSummary.backend }}</strong>
+        </article>
+        <article class="metric-box">
+          <span>代码档位</span>
+          <strong>{{ runtimeSummary.model }}</strong>
+        </article>
+        <article class="metric-box">
+          <span>会话</span>
+          <strong :title="sessionId">{{ utils.shortenSessionId(sessionId) }}</strong>
+        </article>
+        <article class="metric-box">
+          <span>文档</span>
+          <strong>{{ docsSourceName }}</strong>
+        </article>
+      </div>
+
+      <p class="sidebar-copy">{{ healthState.summary }}</p>
+
+      <div class="sidebar-actions">
+        <button type="button" class="ghost-btn" :disabled="isHealthChecking" @click="refreshHealth()">
+          {{ isHealthChecking ? "检查中..." : "健康检查" }}
+        </button>
+        <button type="button" class="ghost-btn" :disabled="isResettingSession" @click="resetSession()">
+          {{ isResettingSession ? "重置中..." : "新会话" }}
+        </button>
+        <button type="button" class="ghost-btn" @click="scrollToTop()">返回顶部</button>
+      </div>
     </section>
   </aside>
 
-  <main class="workspace">
-    <header class="workspace-header">
-      <div>
-        <p class="eyebrow">CHAT PANEL</p>
-        <h2>和本地 Qwen 协作</h2>
-      </div>
-      <div class="header-actions">
-        <button id="newSessionBtn" class="ghost-btn">新会话</button>
-        <button id="healthBtn" class="ghost-btn">检查状态</button>
-        <span id="healthStatus" class="health-pill idle">未检测</span>
-      </div>
-    </header>
-
-    <section id="toolBar" class="tool-bar hidden"></section>
-
-    <section id="patchPanel" class="patch-panel hidden">
-      <div class="patch-header">
-        <div>
-          <p class="eyebrow">PATCH PREVIEW</p>
-          <h3>待确认修改</h3>
+  <main class="app-main">
+    <section v-show="currentView === 'welcome'" class="page-view page-view-welcome">
+      <section id="welcome-hero" class="report-card hero-card">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">项目总览</p>
+            <h2>围绕本地推理、受控工具和 README 同源阅读，给“鸿栀”后续演进留出清晰前端骨架。</h2>
+            <p class="section-note">现在不是完整数字人产品，而是更适合展示、评审和迭代的本地工作台。重点展示已验证链路，未实现能力只保留诚实扩展位。</p>
+          </div>
+          <div class="hero-actions">
+            <button type="button" class="primary-btn" @click="switchView('chat', { resetScroll: true, focusComposer: true })">进入工作台</button>
+            <button type="button" class="ghost-btn" @click="switchView('docs', { resetScroll: true })">阅读手册</button>
+          </div>
         </div>
-        <button id="applyPatchBtn" class="primary-btn small">确认应用</button>
-      </div>
-      <div id="patchPreview" class="patch-preview"></div>
-    </section>
 
-    <section id="patchHistoryPanel" class="patch-history hidden">
-      <div class="trace-header">
-        <h3>修改历史</h3>
-      </div>
-      <div id="patchHistoryList" class="patch-history-list"></div>
-    </section>
+        <div class="hero-layout">
+          <div class="metric-grid">
+            <article v-for="metric in heroMetrics" :key="metric.label" class="metric-card">
+              <span>{{ metric.label }}</span>
+              <strong>{{ metric.value }}</strong>
+              <p>{{ metric.note }}</p>
+            </article>
+          </div>
 
-    <section id="chatLog" class="chat-log">
-      <article class="message assistant">
-        <div class="message-badge">QWEN</div>
-        <div class="message-body">
-          <p>本地 Agent 已就位。你可以让它读取工程、搜索代码、生成内容，或者解释当前项目结构。</p>
+          <div class="timeline-card">
+            <p class="eyebrow">核心闭环</p>
+            <ol class="timeline-list">
+              <li v-for="step in workflowSteps" :key="step.id">
+                <strong>{{ step.label }}</strong>
+                <p>{{ step.description }}</p>
+              </li>
+            </ol>
+          </div>
         </div>
-      </article>
+      </section>
+
+      <section id="welcome-inputs" class="report-card report-section">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">输入源与边界</p>
+            <h3>把当前系统真正依赖的输入、边界和阶段目标讲清楚</h3>
+          </div>
+          <p class="section-note">这一页不再堆叠欢迎话术，而是像报告页一样先交代来源、约束和目标。</p>
+        </div>
+
+        <div class="analysis-grid three-up">
+          <article v-for="card in welcomeInputCards" :key="card.id" class="analysis-card">
+            <h4>{{ card.title }}</h4>
+            <p>{{ card.description }}</p>
+            <ul class="bullet-list">
+              <li v-for="item in card.items" :key="item">{{ item }}</li>
+            </ul>
+          </article>
+        </div>
+      </section>
+
+      <section id="welcome-workflow" class="report-card report-section">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">流程分析</p>
+            <h3>用一个轻交互步骤区梳理当前工作台的最短路径</h3>
+          </div>
+          <p class="section-note">点击左侧步骤，可切换当前步骤的输入、输出和注意点。</p>
+        </div>
+
+        <div class="workflow-layout">
+          <div class="workflow-tabs" role="tablist" aria-label="工作流步骤">
+            <button
+              v-for="step in workflowSteps"
+              :key="step.id"
+              type="button"
+              class="workflow-tab"
+              :class="{ active: activeWorkflowStepId === step.id }"
+              @click="activeWorkflowStepId = step.id"
+            >
+              <span>{{ step.label }}</span>
+              <strong>{{ step.title }}</strong>
+            </button>
+          </div>
+
+          <article class="workflow-detail">
+            <p class="eyebrow">当前步骤</p>
+            <h4>{{ activeWorkflowStep.title }}</h4>
+            <p class="section-note">{{ activeWorkflowStep.description }}</p>
+
+            <div class="detail-grid">
+              <div class="detail-card">
+                <span>输入</span>
+                <strong>{{ activeWorkflowStep.input }}</strong>
+              </div>
+              <div class="detail-card">
+                <span>输出</span>
+                <strong>{{ activeWorkflowStep.output }}</strong>
+              </div>
+            </div>
+
+            <div class="note-card">
+              <strong>注意点</strong>
+              <p>{{ activeWorkflowStep.note }}</p>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section id="welcome-compare" class="report-card report-section">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">核心对比</p>
+            <h3>当前重点仍是 Ollama 与 OpenVINO 的本地路由差异</h3>
+          </div>
+          <p class="section-note">这不是营销式“功能大战”，而是把两条后端路线的定位、优点和约束说清楚。</p>
+        </div>
+
+        <div class="analysis-grid two-up">
+          <article v-for="card in backendComparison" :key="card.id" class="compare-card">
+            <div class="compare-head">
+              <div>
+                <p class="eyebrow">{{ card.name }}</p>
+                <h4>{{ card.emphasis }}</h4>
+              </div>
+              <span class="compare-tag">{{ card.name }}</span>
+            </div>
+            <p>{{ card.principle }}</p>
+
+            <div class="compare-columns">
+              <div>
+                <span class="mini-label">优势</span>
+                <ul class="bullet-list">
+                  <li v-for="item in card.advantages" :key="item">{{ item }}</li>
+                </ul>
+              </div>
+              <div>
+                <span class="mini-label">局限</span>
+                <ul class="bullet-list muted">
+                  <li v-for="item in card.limits" :key="item">{{ item }}</li>
+                </ul>
+              </div>
+            </div>
+
+            <div class="note-card compact">
+              <strong>这张卡想表达什么</strong>
+              <p>{{ card.linkage }}</p>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section id="welcome-run" class="report-card report-section">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">运行说明与预留位</p>
+            <h3>最后一节只保留“怎么接着用”和“未来往哪扩”两类信息</h3>
+          </div>
+          <p class="section-note">不堆砌假能力，重点是把当前入口、最小检查顺序和后续扩展位放在同一页收口。</p>
+        </div>
+
+        <div class="analysis-grid two-up">
+          <div class="stack-grid">
+            <article v-for="card in runGuideCards" :key="card.id" class="path-card">
+              <h4>{{ card.title }}</h4>
+              <code>{{ card.path }}</code>
+              <p>{{ card.description }}</p>
+            </article>
+          </div>
+
+          <div class="stack-grid">
+            <article v-for="card in reserveCards" :key="card.id" class="reserve-card">
+              <div class="reserve-head">
+                <h4>{{ card.title }}</h4>
+                <span>{{ card.status }}</span>
+              </div>
+              <p>{{ card.description }}</p>
+            </article>
+          </div>
+        </div>
+      </section>
     </section>
 
-    <section id="tracePanel" class="trace-panel hidden">
-      <div class="trace-header">
-        <h3>执行轨迹</h3>
-        <button id="toggleTrace" class="ghost-btn small">收起</button>
-      </div>
-      <pre id="traceContent"></pre>
+    <section v-show="currentView === 'chat'" class="page-view page-view-chat">
+      <section id="chat-runtime" class="report-card view-intro-card">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">会话工作台</p>
+            <h2>把请求路由、健康状态、聊天记录和补丁确认收在同一套干净界面里。</h2>
+            <p class="section-note">保留 `chat / health / runtime / patch` 的基本能力，但不再把每块都做成同等视觉声量。</p>
+          </div>
+        </div>
+
+        <div class="analysis-grid three-up">
+          <article class="analysis-card">
+            <h4>当前路由</h4>
+            <div class="status-rows">
+              <div><span>主后端</span><strong>{{ runtimeSummary.backend }}</strong></div>
+              <div><span>模型档位</span><strong>{{ runtimeSummary.model }}</strong></div>
+              <div><span>回退链路</span><strong>{{ runtimeSummary.fallback }}</strong></div>
+            </div>
+            <p>{{ runtimeSummary.hint }}</p>
+          </article>
+
+          <article class="analysis-card">
+            <h4>请求偏好</h4>
+            <div class="control-stack">
+              <label class="control-field">
+                <span>后端</span>
+                <select v-model="selectedBackend" :disabled="isSubmitting" @change="updateRuntimeSummaryFromOptions">
+                  <option v-for="option in backendOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
+                </select>
+              </label>
+              <label class="control-field">
+                <span>模型档位</span>
+                <select v-model="selectedModelProfile" :disabled="isSubmitting" @change="updateRuntimeSummaryFromOptions">
+                  <option v-for="option in modelProfileOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
+                </select>
+              </label>
+            </div>
+          </article>
+
+          <article class="analysis-card">
+            <h4>系统健康</h4>
+            <div class="status-rows">
+              <div><span>应用</span><strong>{{ healthState.spring }}</strong></div>
+              <div><span>Ollama</span><strong>{{ healthState.ollama }}</strong></div>
+              <div><span>OpenVINO</span><strong>{{ healthState.openvino }}</strong></div>
+            </div>
+            <div class="inline-actions">
+              <button type="button" class="ghost-btn" :disabled="isHealthChecking" @click="refreshHealth()">
+                {{ isHealthChecking ? "检查中..." : "刷新健康" }}
+              </button>
+              <button type="button" class="ghost-btn" :disabled="isResettingSession" @click="resetSession()">
+                {{ isResettingSession ? "重置中..." : "重置会话" }}
+              </button>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section id="chat-signals" class="report-card report-section muted-section">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">鸿栀预留位</p>
+            <h3>语音、设备、数字人和情绪结果都保留结构入口，但不伪造后端能力</h3>
+          </div>
+          <p class="section-note">这些区域当前只承担信息架构角色，等后端接口齐备后再接通。</p>
+        </div>
+
+        <div class="analysis-grid two-up">
+          <article v-for="card in signalCards" :key="card.id" class="signal-card">
+            <span class="signal-label">{{ card.label }}</span>
+            <h4>{{ card.title }}</h4>
+            <p>{{ card.description }}</p>
+          </article>
+        </div>
+      </section>
+
+      <section id="chat-conversation" class="conversation-layout">
+        <div class="report-card conversation-card">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">对话区</p>
+              <h3>当前会话</h3>
+            </div>
+            <div class="tool-chip-row" v-if="lastToolsUsed.length">
+              <span v-for="tool in lastToolsUsed" :key="tool" class="tool-chip">{{ tool }}</span>
+            </div>
+          </div>
+
+          <section id="chatLog" class="chat-log">
+            <article v-for="message in chatMessages" :key="message.id" :class="['message', message.role, { pending: message.pending }]">
+              <div class="message-badge">{{ message.label }}</div>
+              <div class="message-body prose" v-html="message.html"></div>
+            </article>
+          </section>
+
+          <form class="composer" @submit.prevent="submitChat">
+            <label for="messageInput" class="sr-only">消息输入框</label>
+            <textarea
+              id="messageInput"
+              v-model="composerText"
+              rows="5"
+              :disabled="isSubmitting"
+              placeholder="例如：请先读 README，再用中文说明当前前端还缺哪些最小接口。"
+              @keydown="handleComposerKeydown"
+            ></textarea>
+            <div class="composer-meta">
+              <div class="composer-hint">Enter 发送，Shift + Enter 换行</div>
+              <div class="request-status" :class="requestStatusTone">{{ requestStatusText }}</div>
+            </div>
+            <div class="composer-actions">
+              <button type="button" class="ghost-btn" :disabled="!lastTrace.length" @click="traceVisible = !traceVisible">
+                {{ traceVisible ? "收起执行链路" : traceButtonText }}
+              </button>
+              <button type="submit" class="primary-btn" :disabled="isSubmitting">
+                {{ isSubmitting ? "发送中..." : "发送请求" }}
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <aside class="conversation-side">
+          <section class="report-card side-card">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">快捷提问</p>
+                <h3>联调入口</h3>
+              </div>
+            </div>
+            <div class="suggestion-list">
+              <button v-for="item in chatSuggestions" :key="item.id" type="button" class="suggestion-card" @click="useSuggestion(item.message)">
+                {{ item.label }}
+              </button>
+            </div>
+          </section>
+
+          <section v-show="traceVisible" class="report-card side-card">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">执行链路</p>
+                <h3>最近一次请求</h3>
+              </div>
+            </div>
+            <pre class="trace-block">{{ traceText }}</pre>
+          </section>
+
+          <section id="chat-patch" class="report-card side-card" v-if="pendingPatch || patchHistory.length">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">补丁确认</p>
+                <h3>{{ pendingPatch ? "待确认变更" : "最近补丁记录" }}</h3>
+              </div>
+              <button v-if="pendingPatch" type="button" class="primary-btn" :disabled="isApplyingPatch" @click="applyPatch()">
+                {{ isApplyingPatch ? "应用中..." : "应用补丁" }}
+              </button>
+            </div>
+
+            <div v-if="pendingPatch" class="patch-preview">
+              <div class="patch-meta" v-if="patchMetaItems.length">
+                <span v-for="item in patchMetaItems" :key="item" class="patch-meta-item">{{ item }}</span>
+              </div>
+
+              <div v-if="pendingPatch.search || pendingPatch.replace" class="patch-diff">
+                <section class="diff-card remove">
+                  <div class="diff-label">原始片段</div>
+                  <pre class="diff-body">{{ pendingPatch.search || "(空)" }}</pre>
+                </section>
+                <section class="diff-card add">
+                  <div class="diff-label">替换片段</div>
+                  <pre class="diff-body">{{ pendingPatch.replace || "(空)" }}</pre>
+                </section>
+              </div>
+
+              <div v-if="pendingPatch.preview" class="code-block">
+                <div class="code-block-head"><span>PATCH PREVIEW</span></div>
+                <pre><code>{{ pendingPatch.preview }}</code></pre>
+              </div>
+            </div>
+
+            <div v-if="patchHistory.length" class="patch-history-list">
+              <article v-for="entry in patchHistory" :key="entry.id" class="patch-history-item" :class="getPatchHistoryTone(entry.success)">
+                <span class="patch-history-badge">{{ getPatchHistoryLabel(entry.success) }}</span>
+                <div>
+                  <div class="patch-history-path">{{ entry.path }}</div>
+                  <div class="patch-history-message">{{ entry.message }}</div>
+                </div>
+                <time class="patch-history-time">{{ entry.time }}</time>
+              </article>
+            </div>
+          </section>
+        </aside>
+      </section>
     </section>
 
-    <form id="chatForm" class="composer">
-      <label for="messageInput" class="sr-only">消息输入框</label>
-      <textarea id="messageInput" rows="4" placeholder="例如：读取 pom.xml，并告诉我这个项目下一步应该怎么演进。"></textarea>
-      <div class="composer-bar">
-        <button type="button" id="showTraceBtn" class="ghost-btn">查看本轮轨迹</button>
-        <button type="submit" id="sendBtn" class="primary-btn">发送</button>
+    <section v-show="currentView === 'docs'" class="page-view page-view-docs">
+      <section id="docs-overview" class="report-card view-intro-card">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">项目手册</p>
+            <h2>README 双语手册页改成更适合展示、评审和连续阅读的蓝白报告结构。</h2>
+            <p class="section-note">保留同源内容和阅读进度，只收束掉视觉噪声，让层级、代码块、列表和引用块更稳。</p>
+          </div>
+          <div class="docs-toolbar">
+            <div class="language-switch" role="tablist" aria-label="文档语言">
+              <button
+                v-for="item in docsLanguages"
+                :key="item.id"
+                type="button"
+                class="lang-btn"
+                :class="{ active: docsLanguage === item.id }"
+                :aria-selected="String(docsLanguage === item.id)"
+                @click="loadDocs(item.id, { resetScroll: true })"
+              >
+                {{ item.label }}
+              </button>
+            </div>
+
+            <div class="docs-overview-grid">
+              <article class="metric-card compact">
+                <span>来源</span>
+                <strong>{{ docsSourceName }}</strong>
+                <p>{{ docsStatus }}</p>
+              </article>
+              <article class="metric-card compact">
+                <span>章节</span>
+                <strong>{{ docsHeadings.length }}</strong>
+                <p>从 README 自动提取</p>
+              </article>
+              <article class="metric-card compact">
+                <span>预计阅读</span>
+                <strong>{{ docsState.readingTime }}</strong>
+                <p>阅读进度 {{ docsProgressText }}</p>
+              </article>
+            </div>
+
+            <div class="inline-actions">
+              <button type="button" class="primary-btn" @click="enterChatFromDocs()">带着手册去工作台</button>
+              <button type="button" class="ghost-btn" @click="loadDocs(docsLanguage, { force: true, resetScroll: true })">重新加载手册</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="docs-summary-strip">
+          <article v-if="docsSummaryCards.length" v-for="card in docsSummaryCards" :key="card.anchor" class="docs-summary-card">
+            <button type="button" class="docs-summary-button" @click="scrollToSection(card.anchor)">
+              <span>{{ card.index }}</span>
+              <strong>{{ card.title }}</strong>
+              <small>{{ card.levelLabel }}</small>
+            </button>
+          </article>
+          <article v-else class="docs-summary-card docs-summary-card-empty">
+            <strong>章节摘要会在 README 加载完成后生成</strong>
+            <p>这里会优先展示当前文档的前几个核心章节，方便投屏和扫读。</p>
+          </article>
+        </div>
+      </section>
+
+      <div id="docs-reader" class="docs-reader-layout">
+        <section class="report-card docs-info-card">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">阅读摘要</p>
+              <h3>当前阅读状态</h3>
+            </div>
+          </div>
+
+          <div class="status-rows">
+            <div><span>语言</span><strong>{{ getDocsLanguageLabel(docsLanguage) }}</strong></div>
+            <div><span>来源</span><strong>{{ docsSourceName }}</strong></div>
+            <div><span>同步</span><strong>{{ docsStatus }}</strong></div>
+          </div>
+
+          <div class="note-card compact">
+            <strong>读图提示</strong>
+            <p>顶部阅读进度条会随着滚动平滑更新。左侧导航负责跨页跳转，当前侧栏负责文档筛选和状态说明。</p>
+          </div>
+
+          <div class="docs-pipeline">
+            <article v-for="step in docsPipelineSteps" :key="step.id" class="docs-pipeline-card">
+              <span>{{ step.title }}</span>
+              <p>{{ step.description }}</p>
+            </article>
+          </div>
+        </section>
+
+        <article id="docsArticle" class="report-card docs-article">
+          <div class="docs-reader-shell">
+            <div v-if="docsState.renderMode === 'placeholder'" class="docs-placeholder"><p>点击“阅读手册”后，将直接读取仓库中的 README。</p></div>
+            <div v-else-if="docsState.renderMode === 'loading'" class="docs-loading"><p>正在加载 {{ docsSourceName }} ...</p></div>
+            <div v-else-if="docsState.renderMode === 'error'" class="docs-error"><p>{{ docsState.errorMessage }}</p></div>
+            <div v-else class="docs-content prose" v-html="docsState.html"></div>
+          </div>
+        </article>
       </div>
-    </form>
+    </section>
   </main>
+
+  <button v-show="showBackToTop" type="button" class="back-top" @click="scrollToTop()">回到顶部</button>
+
+  <div class="toast-stack" aria-live="polite" aria-atomic="true">
+    <div v-for="toast in toasts" :key="toast.id" class="toast" :class="[toast.tone, { visible: toast.visible }]">
+      {{ toast.message }}
+    </div>
+  </div>
 </div>
 
-<script src="/app.js"></script>
+<script defer src="/vendor/vue.global.prod.js"></script>
+<script defer src="/scripts/core.js"></script>
+<script defer src="/scripts/markdown.js"></script>
+<script defer src="/scripts/vue/workspace-app.js"></script>
+<script defer src="/app.js"></script>
 </body>
 </html>
