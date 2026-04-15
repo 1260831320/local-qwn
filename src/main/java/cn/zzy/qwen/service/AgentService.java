@@ -7,6 +7,7 @@ import cn.zzy.qwen.model.ConversationMessage;
 import cn.zzy.qwen.model.PendingPatch;
 import cn.zzy.qwen.model.PatchApplyRequest;
 import cn.zzy.qwen.model.PatchApplyResponse;
+import cn.zzy.qwen.model.SessionSnapshotResponse;
 import cn.zzy.qwen.model.ToolResult;
 import cn.zzy.qwen.tools.ToolRegistry;
 import org.springframework.stereotype.Service;
@@ -14,6 +15,7 @@ import org.springframework.stereotype.Service;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -158,6 +160,18 @@ public class AgentService {
             pendingPatchService.clear(request.sessionId());
         }
         return new PatchApplyResponse(result.success(), result.output());
+    }
+
+    public SessionSnapshotResponse sessionSnapshot(String sessionId) {
+        List<ConversationMessage> history = conversationMemoryService.history(sessionId);
+        Optional<PendingPatch> pendingPatch = pendingPatchService.find(sessionId);
+        boolean hasContent = !history.isEmpty() || pendingPatch.isPresent();
+        return new SessionSnapshotResponse(
+                sessionId,
+                hasContent,
+                history,
+                pendingPatch.orElse(null)
+        );
     }
 
     public void clearSession(String sessionId) {

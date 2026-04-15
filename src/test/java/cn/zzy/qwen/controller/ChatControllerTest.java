@@ -7,6 +7,7 @@ import cn.zzy.qwen.model.HealthResponse;
 import cn.zzy.qwen.model.PendingPatch;
 import cn.zzy.qwen.model.PatchApplyResponse;
 import cn.zzy.qwen.model.RuntimeOptionsResponse;
+import cn.zzy.qwen.model.SessionSnapshotResponse;
 import cn.zzy.qwen.service.AgentService;
 import cn.zzy.qwen.service.HealthService;
 import cn.zzy.qwen.service.ProjectDocsService;
@@ -161,6 +162,28 @@ class ChatControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.message").value("patched"));
+    }
+
+    @Test
+    void sessionSnapshotReturnsServicePayload() throws Exception {
+        PendingPatch pendingPatch = new PendingPatch("p1", "a.txt", "old", "new", "preview");
+        when(agentService.sessionSnapshot("s1")).thenReturn(new SessionSnapshotResponse(
+                "s1",
+                true,
+                List.of(
+                        new cn.zzy.qwen.model.ConversationMessage("user", "hello"),
+                        new cn.zzy.qwen.model.ConversationMessage("assistant", "hi")
+                ),
+                pendingPatch
+        ));
+
+        mockMvc.perform(get("/api/session/s1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.sessionId").value("s1"))
+                .andExpect(jsonPath("$.hasContent").value(true))
+                .andExpect(jsonPath("$.messages[0].role").value("user"))
+                .andExpect(jsonPath("$.messages[1].content").value("hi"))
+                .andExpect(jsonPath("$.pendingPatch.patchId").value("p1"));
     }
 
     @Test

@@ -203,6 +203,34 @@ window.HongzhiFrontend.createWorkspaceApp = () => {
     }
   ];
 
+  const WORKSPACE_STATE_KEY = "hongzhi.workspace.state.v1";
+  const MAX_PATCH_HISTORY_ITEMS = 6;
+
+  function createSessionId() {
+    if (window.crypto && typeof window.crypto.randomUUID === "function") {
+      return window.crypto.randomUUID();
+    }
+    return `session-${Date.now()}-${Math.random().toString(16).slice(2, 10)}`;
+  }
+
+  function readStoredWorkspaceState() {
+    try {
+      const raw = window.localStorage.getItem(WORKSPACE_STATE_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch (error) {
+      return null;
+    }
+  }
+
+  function writeStoredWorkspaceState(state) {
+    try {
+      window.localStorage.setItem(WORKSPACE_STATE_KEY, JSON.stringify(state));
+      return true;
+    } catch (error) {
+      return false;
+    }
+  }
+
   function createPlainHtml(text) {
     return `<p>${utils.escapeHtml(String(text || "")).replace(/\n/g, "<br>")}</p>`;
   }
@@ -274,7 +302,7 @@ window.HongzhiFrontend.createWorkspaceApp = () => {
         currentView: "welcome",
         activeWorkflowStepId: WORKFLOW_STEPS[0].id,
         activeViewAnchor: VIEW_SECTIONS.welcome[0].anchor,
-        sessionId: crypto.randomUUID(),
+        sessionId: createSessionId(),
         runtimeOptions: null,
         selectedBackend: "auto",
         selectedModelProfile: "auto",
@@ -450,6 +478,39 @@ window.HongzhiFrontend.createWorkspaceApp = () => {
           levelLabel: `H${heading.level}`,
           index: String(index + 1).padStart(2, "0")
         }));
+      }
+    },
+
+    watch: {
+      sessionId() {
+        this.persistWorkspaceState();
+      },
+
+      selectedBackend() {
+        this.persistWorkspaceState();
+      },
+
+      selectedModelProfile() {
+        this.persistWorkspaceState();
+      },
+
+      docsLanguage() {
+        this.persistWorkspaceState();
+      },
+
+      currentView() {
+        this.persistWorkspaceState();
+      },
+
+      sidebarExpanded() {
+        this.persistWorkspaceState();
+      },
+
+      patchHistory: {
+        handler() {
+          this.persistWorkspaceState();
+        },
+        deep: true
       }
     },
 
@@ -641,11 +702,115 @@ window.HongzhiFrontend.createWorkspaceApp = () => {
         this.runtimeSummary.hintError = true;
       },
 
-      readLocationState() {
+      normalizeStoredPatchHistory(entries) {
+        if (!Array.isArray(entries)) {
+          return [];
+        }
+
+        return entries
+          .filter((entry) => entry && typeof entry === "object")
+          .map((entry) => ({
+            id: String(entry.id || createSessionId()),
+            path: String(entry.path || "未标注文件"),
+            success: Boolean(entry.success),
+            message: String(entry.message || (entry.success ? "变更已应用。" : "变更应用失败。")),
+            time: String(entry.time || "")
+          }))
+          .slice(0, MAX_PATCH_HISTORY_ITEMS);
+      },
+
+      restoreLocalWorkspaceState(storedState, locationState) {
+        this.sessionId = typeof storedState?.sessionId === "string" && storedState.sessionId.trim()
+          ? storedState.sessionId.trim()
+          : createSessionId();
+        this.selectedBackend = typeof storedState?.selectedBackend === "string" && storedState.selectedBackend.trim()
+          ? storedState.selectedBackend
+          : "auto";
+        this.selectedModelProfile = typeof storedState?.selectedModelProfile === "string" && storedState.selectedModelProfile.trim()
+          ? storedState.selectedModelProfile
+          : "auto";
+        this.patchHistory = this.normalizeStoredPatchHistory(storedState?.patchHistory);
+        this.currentView = locationState.view;
+        this.docsLanguage = locationState.language;
+        this.sidebarExpanded = typeof storedState?.sidebarExpanded === "boolean"
+          ? storedState.sidebarExpanded
+          : locationState.view === "welcome";
+      },
+
+      persistWorkspaceState() {
+        writeStoredWorkspaceState({
+          sessionId: this.sessionId,
+          selectedBackend: this.selectedBackend || "auto",
+          selectedModelProfile: this.selectedModelProfile || "auto",
+          currentView: this.currentView,
+          docsLanguage: this.docsLanguage,
+          sidebarExpanded: this.sidebarExpanded,
+          patchHistory: this.patchHistory.slice(0, MAX_PATCH_HISTORY_ITEMS)
+        });
+      },
+
+      buildChatMessageFromSnapshot(message) {
+        const role = message?.role === "assistant" ? "assistant" : "user";
+        return {
+          id: createSessionId(),
+          role,
+          label: role === "assistant" ? "鸿栀" : "你",
+          html: role === "assistant"
+            ? createMarkdownHtml(message?.content || "")
+            : createPlainHtml(message?.content || ""),
+          pending: false
+        };
+      },
+
+      async restoreSessionSnapshot(options = {}) {
+        const silent = Boolean(options.silent);
+
+        try {
+          const data = await utils.requestJson(`/api/session/${encodeURIComponent(this.sessionId)}`);
+          const messages = Array.isArray(data.messages) ? data.messages : [];
+          this.pendingPatch = data.pendingPatch || null;
+          this.lastTrace = [];
+          this.lastToolsUsed = [];
+          this.traceVisible = false;
+
+          if (!data.hasContent) {
+            if (!this.chatMessages.length) {
+              this.resetChatLog();
+            }
+            return;
+          }
+
+          if (messages.length) {
+            this.chatMessages = messages.map((message) => this.buildChatMessageFromSnapshot(message));
+          } else if (!this.chatMessages.length) {
+            this.resetChatLog();
+          }
+
+          this.setRequestStatus("idle", this.pendingPatch ? "状态：已恢复对话与待确认变更" : "状态：已恢复最近对话");
+          if (!silent) {
+            this.showToast(
+              this.pendingPatch ? "已恢复最近对话和待确认变更。" : "已恢复最近对话。",
+              "success"
+            );
+          }
+
+          this.$nextTick(() => {
+            this.scrollChatToBottom();
+          });
+        } catch (error) {
+          if (!silent) {
+            this.showToast(`恢复最近对话失败：${error.message}`, "warning");
+          }
+        }
+      },
+
+      readLocationState(defaults = {}) {
         const url = new URL(window.location.href);
         const nextView = url.searchParams.get("view");
-        const view = Object.prototype.hasOwnProperty.call(VIEW_LABELS, nextView) ? nextView : "welcome";
-        const language = utils.normalizeDocsLanguage(url.searchParams.get("lang") || this.docsLanguage);
+        const fallbackView = Object.prototype.hasOwnProperty.call(VIEW_LABELS, defaults.view) ? defaults.view : "welcome";
+        const view = Object.prototype.hasOwnProperty.call(VIEW_LABELS, nextView) ? nextView : fallbackView;
+        const fallbackLanguage = utils.normalizeDocsLanguage(defaults.language || this.docsLanguage || "zh");
+        const language = utils.normalizeDocsLanguage(url.searchParams.get("lang") || fallbackLanguage);
         return { view, language };
       },
 
@@ -780,7 +945,7 @@ window.HongzhiFrontend.createWorkspaceApp = () => {
 
       resetChatLog() {
         this.chatMessages = [{
-          id: crypto.randomUUID(),
+          id: createSessionId(),
           role: "assistant",
           label: "鸿栀",
           html: createPlainHtml("欢迎来到鸿栀。你可以在这里阅读说明、发起对话、查看状态，并在确认后应用变更。"),
@@ -790,7 +955,7 @@ window.HongzhiFrontend.createWorkspaceApp = () => {
 
       appendMessage(role, label, content, options = {}) {
         const message = {
-          id: crypto.randomUUID(),
+          id: createSessionId(),
           role,
           label,
           html: options.markdown ? createMarkdownHtml(content) : createPlainHtml(content),
@@ -878,14 +1043,14 @@ window.HongzhiFrontend.createWorkspaceApp = () => {
         }
 
         this.patchHistory.unshift({
-          id: crypto.randomUUID(),
+          id: createSessionId(),
           path: patch.path || "未标注文件",
           success: Boolean(success),
           message: message || (success ? "变更已应用。" : "变更应用失败。"),
           time: new Date().toLocaleString("zh-CN", { hour12: false })
         });
 
-        this.patchHistory = this.patchHistory.slice(0, 6);
+        this.patchHistory = this.patchHistory.slice(0, MAX_PATCH_HISTORY_ITEMS);
       },
 
       async applyPatch() {
@@ -936,7 +1101,7 @@ window.HongzhiFrontend.createWorkspaceApp = () => {
           // Best effort only.
         }
 
-        this.sessionId = crypto.randomUUID();
+        this.sessionId = createSessionId();
         this.lastTrace = [];
         this.lastToolsUsed = [];
         this.pendingPatch = null;
@@ -985,6 +1150,7 @@ window.HongzhiFrontend.createWorkspaceApp = () => {
           const data = await utils.requestJson("/api/runtime/options");
           this.runtimeOptions = data;
           this.updateRuntimeSummaryFromOptions();
+          this.persistWorkspaceState();
         } catch (error) {
           this.renderRuntimeOptionsFailure(error.message);
         }
@@ -1169,14 +1335,17 @@ window.HongzhiFrontend.createWorkspaceApp = () => {
       },
 
       handlePopState() {
-        const locationState = this.readLocationState();
+        const locationState = this.readLocationState({
+          view: this.currentView,
+          language: this.docsLanguage
+        });
         this.docsLanguage = locationState.language;
-        this.switchView(locationState.view, { focusComposer: false, skipHistory: true });
+        this.switchView(locationState.view, { focusComposer: false, skipHistory: true, preserveSidebarState: true });
       },
 
       showToast(message, tone = "info") {
         const toast = {
-          id: crypto.randomUUID(),
+          id: createSessionId(),
           message,
           tone,
           visible: false
@@ -1197,13 +1366,22 @@ window.HongzhiFrontend.createWorkspaceApp = () => {
       }
     },
     mounted() {
-      const locationState = this.readLocationState();
-      this.docsLanguage = locationState.language;
+      const storedState = readStoredWorkspaceState();
+      const locationState = this.readLocationState({
+        view: storedState?.currentView,
+        language: storedState?.docsLanguage
+      });
+      this.restoreLocalWorkspaceState(storedState, locationState);
       this.resetChatLog();
       this.renderHealthIdle();
       this.updateRuntimeSummaryFromOptions();
       this.setRequestStatus("idle", "状态：就绪");
-      this.switchView(locationState.view, { focusComposer: false, skipHistory: true, resetScroll: true });
+      this.switchView(locationState.view, {
+        focusComposer: false,
+        skipHistory: true,
+        resetScroll: true,
+        preserveSidebarState: true
+      });
 
       this._onScroll = () => {
         this.handleWindowScroll();
@@ -1219,9 +1397,11 @@ window.HongzhiFrontend.createWorkspaceApp = () => {
       window.addEventListener("resize", this._onResize, { passive: true });
       window.addEventListener("popstate", this._onPopState);
 
+      void this.restoreSessionSnapshot({ silent: true });
       void this.loadRuntimeOptions();
       void this.refreshHealth({ silent: true });
       this.queueViewportUpdate();
+      this.persistWorkspaceState();
     },
 
     beforeUnmount() {

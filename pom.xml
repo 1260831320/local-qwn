@@ -13,7 +13,7 @@
 
     <groupId>cn.zzy.qwen</groupId>
     <artifactId>qwen</artifactId>
-    <version>1.0.5</version>
+    <version>1.1.0</version>
     <name>qwen</name>
     <description>Local Qwen agent with controlled tools</description>
 
