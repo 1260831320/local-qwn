@@ -18,6 +18,7 @@ Current visual direction:
 - blue-white report-style workspace
 - unified design language across `welcome / chat / docs`
 - strong information hierarchy over decorative effects
+- core-first layout that keeps the main task area above support cards
 
 ## Current Frontend Architecture
 
@@ -47,6 +48,9 @@ Styles:
 - preserve the same-source docs flow:
   - docs content comes from backend `GET /api/docs/{language}`
   - repository `README.md` and `README.en.md` remain the content source of truth
+- user-visible UI copy must stay user-facing:
+  - avoid API names, file paths, internal architecture labels, and debugging jargon in normal page copy
+  - treat `README.md` / `README.en.md` as current-version guides for end users first
 - do not reintroduce a monolithic imperative SPA
 - keep the left navigation, report-style sections, and unified card system coherent
 - keep reading progress, outline navigation, and chapter summaries smooth and stable

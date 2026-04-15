@@ -67,6 +67,10 @@ Do not introduce cloud-only dependencies, paid API lock-in, or unrestricted shel
 
 ## Current Repository State
 
+Current release target:
+
+- `v1.0.5`
+
 ### Runtime
 
 - `Java 17`
@@ -98,11 +102,15 @@ Current architecture:
 Current UX shape:
 
 - a Vue-based SPA
-- left-side navigation + right-side report-style content area
+- top sticky navigation + collapsible left-side support area + right-side main content
 - three primary views:
   - `welcome`
   - `chat`
   - `docs`
+- core-first page layout:
+  - keep the primary task area above secondary status / configuration content
+- user-facing docs tone:
+  - `README.md` and `README.en.md` should read as current-version guides in the docs view
 - docs view features:
   - README same-source rendering
   - heading anchors
@@ -192,6 +200,12 @@ If a contract changes:
 - update Java code and tests together
 - update frontend assumptions in the same task when necessary
 - reflect important new facts in `README.md`, `README.en.md`, or `AGENTS.md`
+
+## Frontend Copy Rules
+
+- user-visible frontend copy must prefer user-facing language over developer-facing wording
+- avoid exposing API names, file paths, internal architecture labels, or debugging jargon in normal UI copy unless the task explicitly requires it
+- when `README.md` / `README.en.md` are updated for the docs view, treat them as end-user-facing manuals first
 
 ## Working Rules
 

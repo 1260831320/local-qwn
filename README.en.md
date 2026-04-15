@@ -1,255 +1,105 @@
-# Hongzhi v1.0.0
+# Hongzhi v1.0.5
 
-`Hongzhi` is currently a local-first emotional companionship robot prototype.
+Hongzhi is a local-first intelligent workspace.
 
-It is not yet a full A22 multimodal digital human system. The current phase is focused on proving the following foundations first:
+This release focuses on four things:
 
-- stable local deployment and local inference
-- bounded tool execution and guarded file mutation
-- a usable browser workspace on ordinary hardware
-- backend routing between `Ollama` and `OpenVINO`
+- a Chinese-first workspace for reading, chatting, and status checking
+- practical local use on ordinary PCs
+- preview-first, confirm-before-apply changes
+- clear messaging about what is available now and what is still reserved
 
-Its long-term direction aligns with the A22 track of the 17th China College Student Service Outsourcing and Innovation Competition and will gradually evolve toward an emotional companionship virtual digital human system.
+## What You Can Do
 
-## Current Release
+- read the current guide and jump between sections quickly
+- ask questions in the workspace and review the response flow
+- switch the response engine and response mode when needed
+- review pending changes before applying them
 
-- version: `v1.0.0`
-- description: `Emotional companionship robot prototype`
-- stage: local capability validation + frontend structure consolidation
+## Three Main Views
 
-This release emphasizes:
+### Overview
 
-- Chinese-first product expression
-- local-first operation
-- explicit safety boundaries
-- README-as-source-of-truth documentation
+- see what the current release can do
+- follow a simple recommended usage flow
+- compare the available response modes
 
-## Current Product Surface
+### Workspace
 
-### Browser Workspace
+- keep the conversation at the top
+- view service status and preferences on the same page
+- preview changes before applying them
 
-The frontend is still served by `Spring Boot`, with a locally vendored `Vue 3` SPA under `src/main/resources/static`.
+### Manual
 
-The current workspace contains three primary views:
+- read in Chinese or English
+- use chapter summaries, navigation, and reading progress
+- jump back to the workspace with a question at any time
 
-- Overview
-  - a blue-and-white report-style page for project positioning, workflow, constraints, backend comparison, and run guidance
-- Workspace
-  - chat, runtime selection, health status, trace display, patch preview, and patch confirmation
-- Manual
-  - direct rendering of `README.md / README.en.md`
-  - heading navigation, reading progress, and chapter summary cards
+## How To Start
 
-### Backend APIs
+1. Start the app.
 
-Current HTTP endpoints:
-
-- `POST /api/chat`
-- `GET /api/health`
-- `GET /api/runtime/options`
-- `GET /api/docs/{language}`
-- `POST /api/patch/apply`
-- `POST /api/session/{sessionId}/clear`
-
-Current registered tools:
-
-- `list_files`
-- `read_file`
-- `read_many_files`
-- `search_in_files`
-- `write_file`
-- `preview_patch_file`
-- `patch_file`
-
-## Current Frontend Layout
-
-```text
-src/main/resources/static
-├─ index.html
-├─ styles.css
-├─ app.js
-├─ vendor/
-│  └─ vue.global.prod.js
-├─ scripts/
-│  ├─ core.js
-│  ├─ markdown.js
-│  └─ vue/
-│     └─ workspace-app.js
-└─ styles/
-   ├─ base.css
-   ├─ welcome.css
-   ├─ chat.css
-   └─ docs.css
-```
-
-Notes:
-
-- `core.js`
-  - shared frontend utilities, request helpers, labels, and docs-language helpers
-- `markdown.js`
-  - README rendering, heading extraction, and reading-time estimation
-- `workspace-app.js`
-  - Vue application state, view switching, API orchestration, and scroll-linked UI state
-- `styles/*.css`
-  - shared theme layer plus per-view styling
-
-## Model Backends and Routing
-
-The project currently supports:
-
-- `ollama`
-- `openvino`
-
-Selection priority:
-
-1. explicit `modelProfile`
-2. explicit `backend`
-3. backend-side automatic routing
-
-Current practical positioning:
-
-- `Ollama`
-  - better suited for code understanding, patching, and heavier tool-oriented tasks
-- `OpenVINO`
-  - better suited for lightweight local inference validation and lower-cost deployment experiments
-
-Important limitation:
-
-- the current `OpenVINO` path is verified and useful
-- but it is still not a drop-in coding-task replacement for `Ollama`
-
-## Safety Boundary
-
-The repository intentionally stays conservative:
-
-- file operations stay inside the configured workspace root
-- path traversal is blocked
-- `write_file` is create-only and does not overwrite existing files
-- `patch_file` requires a matching preview in the same session flow
-- raw shell execution is not exposed to the model
-
-Do not weaken these boundaries for demo value.
-
-## Runtime Requirements
-
-- `Java 17`
-- `Spring Boot 3`
-- at least one local backend available
-  - `Ollama`
-  - or the local `OpenVINO` Python inference path
-
-Currently validated OpenVINO details:
-
-- wrapper: `${user.dir}/scripts/openvino/run_genai.py`
-- validated machine profile: `redmibook14`
-- validated model: `qwen2.5-1.5b-instruct-int4-ov`
-- preferred device: `NPU`
-
-## Quick Start
-
-### Windows
+Windows:
 
 ```powershell
 .\mvnw.cmd spring-boot:run
 ```
 
-### macOS / Linux
+macOS / Linux:
 
 ```bash
 ./mvnw spring-boot:run
 ```
 
-After startup:
+2. Open `http://localhost:8080` in your browser
+3. Start from Overview or Manual, then move to Workspace
+4. Review any change preview before applying it
 
-- workspace UI: `http://localhost:8080`
-- health API: `http://localhost:8080/api/health`
-- Chinese manual: `http://localhost:8080/api/docs/zh`
-- English manual: `http://localhost:8080/api/docs/en`
+## Current Release
 
-## Common Validation
+- version: `v1.0.5`
+- product form: local-first intelligent workspace
+- focus: core-first layout, user-facing copy, bilingual manual reading
 
-### Frontend syntax checks
+## Local Experience Principles
 
-```powershell
-node --check src/main/resources/static/app.js
-node --check src/main/resources/static/scripts/core.js
-node --check src/main/resources/static/scripts/markdown.js
-node --check src/main/resources/static/scripts/vue/workspace-app.js
-```
+- local-first operation
+- privacy-friendly design
+- clear visible status
+- preview-first change confirmation
 
-### Backend regression
+## Available Engines
 
-```powershell
-.\mvnw.cmd test
-```
+This release currently supports two local response engines:
 
-## Common API Examples
+- `Ollama`
+- `OpenVINO`
 
-### Chat request
+General guidance:
 
-```bash
-curl -X POST http://localhost:8080/api/chat ^
-  -H "Content-Type: application/json" ^
-  -d "{\"message\":\"read pom.xml\",\"sessionId\":\"demo\",\"backend\":\"auto\",\"modelProfile\":\"auto\"}"
-```
+- choose `Ollama` for more complex questions and fuller answers
+- choose `OpenVINO` for lighter local usage and lower resource cost
 
-### Runtime options
+## Reserved But Not Open Yet
 
-```bash
-curl http://localhost:8080/api/runtime/options
-```
+The following areas are still placeholders in this release:
 
-### English manual
+- voice mode
+- microphone / camera connection
+- digital avatar expression
+- emotion suggestion output
 
-```bash
-curl http://localhost:8080/api/docs/en
-```
+## What Changed In v1.0.5
 
-## Configuration Files
+- Overview, Workspace, and Manual now prioritize core content first
+- the persistent left banner can collapse to free more space
+- frontend copy is now user-facing instead of developer-facing
+- the homepage and browser icon now use the new logo
+- the bilingual manual now matches the current release tone
 
-Shared and machine-specific overrides:
+## Reminder
 
-- `src/main/resources/application.yml`
-- `src/main/resources/machines/common.yml`
-- `src/main/resources/machines/default.yml`
-- `src/main/resources/machines/<profile>.yml`
-
-Common keys:
-
-- `qwen.backend.type`
-- `qwen.backend.fallback-type`
-- `qwen.ollama.base-url`
-- `qwen.ollama.model`
-- `qwen.openvino.python-exe`
-- `qwen.openvino.script-path`
-- `qwen.openvino.model-dir`
-- `qwen.tools.workspace-root`
-
-## Capabilities Intentionally Reserved But Not Implemented Yet
-
-The frontend already reserves space for these, but the current release does not fake them:
-
-- voice-mode entry
-- microphone / camera status
-- digital human status area
-- structured emotion-understanding / intervention output
-
-## Near-Term Direction
-
-- persist session history and pending patch state
-- move patch preview toward structured payloads
-- define cleaner contracts for `ASR / TTS / avatar / emotion-state`
-- keep improving the integration of local inference, manual reading, and browser workspace workflows
-
-## Branch Model
-
-Recommended branch flow:
-
-- `master`
-  - stable release branch
-- `develop`
-  - daily integration branch
-- `feature/<task>`
-  - short-lived task branches
-
-The repository is still a single-repo collaboration environment. Prefer short-lived branches from a shared base over long-lived device-specific branches.
+- this release is still being refined
+- if a service is unavailable, the UI will show it directly
+- no file change is applied before confirmation

@@ -4,38 +4,65 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>鸿栀本地工作台</title>
-  <link rel="stylesheet" href="/styles.css">
+  <link rel="icon" type="image/png" href="/logo.png?v=1.0.5">
+  <link rel="apple-touch-icon" href="/logo.png?v=1.0.5">
+  <link rel="stylesheet" href="/styles.css?v=1.0.5">
 </head>
 <body>
-<div id="app" v-cloak class="app-shell">
+<div id="app" v-cloak>
+<div class="app-shell" :class="{ 'sidebar-collapsed': isSidebarCollapsed }">
   <div class="reader-progress" :class="{ active: currentView === 'docs' }" aria-hidden="true">
     <div class="reader-progress-bar" :style="{ transform: `scaleX(${docsState.progress / 100})` }"></div>
   </div>
 
-  <aside class="app-sidebar">
-    <section class="sidebar-card sidebar-brand">
-      <div class="brand-mark">鸿</div>
-      <div>
-        <p class="eyebrow">HONGZHI LOCAL WORKSPACE</p>
+  <header class="app-top-dock" :class="{ compact: topDockCompact }">
+    <div class="top-dock-inner">
+      <button
+        type="button"
+        class="top-dock-brand"
+        @click="switchView('welcome', { resetScroll: true })"
+      >
+        <span class="brand-mark">
+          <img class="brand-mark-image" src="/logo.png?v=1.0.5" alt="鸿栀 logo">
+        </span>
         <h1>鸿栀本地工作台</h1>
-        <p class="sidebar-copy">前端先服务于本地模型验证、文档同源阅读、受控工具与补丁确认。语音、数字人和情绪干预仍处于结构预留阶段。</p>
-      </div>
+      </button>
+
+      <nav class="top-dock-nav" aria-label="主导航">
+        <button
+          v-for="item in navItems"
+          :key="item.id"
+          type="button"
+          class="top-dock-nav-item"
+          :class="{ active: currentView === item.id }"
+          @click="switchView(item.id, { resetScroll: true, focusComposer: item.id === 'chat' })"
+        >
+          {{ item.label }}
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <aside class="app-sidebar" :class="{ collapsed: isSidebarCollapsed }">
+    <button
+      type="button"
+      class="sidebar-toggle"
+      :class="{ collapsed: isSidebarCollapsed }"
+      :aria-expanded="String(!isSidebarCollapsed)"
+      @click="toggleSidebar()"
+    >
+      <span class="sidebar-toggle-mark">{{ isSidebarCollapsed ? "展" : "收" }}</span>
+      <strong class="sidebar-toggle-title">{{ sidebarToggleText }}</strong>
+      <small v-if="!isSidebarCollapsed" class="sidebar-toggle-note">{{ sidebarToggleHint }}</small>
+    </button>
+
+    <section v-if="isSidebarCollapsed" class="sidebar-card sidebar-collapsed-card">
+      <p class="eyebrow">当前页面</p>
+      <strong class="sidebar-collapsed-title">{{ currentViewLabel }}</strong>
+      <span class="status-badge" :class="healthState.visual">{{ healthBadgeLabel }}</span>
     </section>
 
-    <nav class="sidebar-card sidebar-nav" aria-label="主导航">
-      <button
-        v-for="item in navItems"
-        :key="item.id"
-        type="button"
-        class="sidebar-nav-item"
-        :class="{ active: currentView === item.id }"
-        @click="switchView(item.id, { resetScroll: true, focusComposer: item.id === 'chat' })"
-      >
-        <span>{{ item.label }}</span>
-        <small>{{ item.note }}</small>
-      </button>
-    </nav>
-
+    <template v-if="!isSidebarCollapsed">
     <section class="sidebar-card sidebar-outline">
       <div class="sidebar-card-head">
         <div>
@@ -76,16 +103,16 @@
 
       <div class="sidebar-metrics">
         <article class="metric-box">
-          <span>主后端</span>
+          <span>当前引擎</span>
           <strong>{{ runtimeSummary.backend }}</strong>
         </article>
         <article class="metric-box">
-          <span>代码档位</span>
+          <span>回答模式</span>
           <strong>{{ runtimeSummary.model }}</strong>
         </article>
         <article class="metric-box">
-          <span>会话</span>
-          <strong :title="sessionId">{{ utils.shortenSessionId(sessionId) }}</strong>
+          <span>当前页面</span>
+          <strong>{{ currentViewLabel }}</strong>
         </article>
         <article class="metric-box">
           <span>文档</span>
@@ -100,11 +127,12 @@
           {{ isHealthChecking ? "检查中..." : "健康检查" }}
         </button>
         <button type="button" class="ghost-btn" :disabled="isResettingSession" @click="resetSession()">
-          {{ isResettingSession ? "重置中..." : "新会话" }}
+          {{ isResettingSession ? "处理中..." : "开始新对话" }}
         </button>
         <button type="button" class="ghost-btn" @click="scrollToTop()">返回顶部</button>
       </div>
     </section>
+    </template>
   </aside>
 
   <main class="app-main">
@@ -113,8 +141,8 @@
         <div class="section-heading">
           <div>
             <p class="eyebrow">项目总览</p>
-            <h2>围绕本地推理、受控工具和 README 同源阅读，给“鸿栀”后续演进留出清晰前端骨架。</h2>
-            <p class="section-note">现在不是完整数字人产品，而是更适合展示、评审和迭代的本地工作台。重点展示已验证链路，未实现能力只保留诚实扩展位。</p>
+            <h2>在一处完成阅读、对话、状态查看与安全确认。</h2>
+            <p class="section-note">当前版本优先保证本地可用、界面清晰和使用过程可确认，未开放的能力会明确说明。</p>
           </div>
           <div class="hero-actions">
             <button type="button" class="primary-btn" @click="switchView('chat', { resetScroll: true, focusComposer: true })">进入工作台</button>
@@ -215,9 +243,9 @@
         <div class="section-heading">
           <div>
             <p class="eyebrow">核心对比</p>
-            <h3>当前重点仍是 Ollama 与 OpenVINO 的本地路由差异</h3>
+            <h3>两种本地回答引擎各有适合的使用场景</h3>
           </div>
-          <p class="section-note">这不是营销式“功能大战”，而是把两条后端路线的定位、优点和约束说清楚。</p>
+          <p class="section-note">你可以根据问题复杂度和设备状态，选择更适合自己的使用模式。</p>
         </div>
 
         <div class="analysis-grid two-up">
@@ -257,10 +285,10 @@
       <section id="welcome-run" class="report-card report-section">
         <div class="section-heading">
           <div>
-            <p class="eyebrow">运行说明与预留位</p>
-            <h3>最后一节只保留“怎么接着用”和“未来往哪扩”两类信息</h3>
+            <p class="eyebrow">继续使用</p>
+            <h3>这里告诉你接下来可以怎么用，以及哪些能力还在准备中</h3>
           </div>
-          <p class="section-note">不堆砌假能力，重点是把当前入口、最小检查顺序和后续扩展位放在同一页收口。</p>
+          <p class="section-note">先把当前入口和使用建议说清楚，再逐步补充后续能力。</p>
         </div>
 
         <div class="analysis-grid two-up">
@@ -289,19 +317,19 @@
       <section id="chat-runtime" class="report-card view-intro-card">
         <div class="section-heading">
           <div>
-            <p class="eyebrow">会话工作台</p>
-            <h2>把请求路由、健康状态、聊天记录和补丁确认收在同一套干净界面里。</h2>
-            <p class="section-note">保留 `chat / health / runtime / patch` 的基本能力，但不再把每块都做成同等视觉声量。</p>
+            <p class="eyebrow">使用偏好</p>
+            <h2>在这里调整回答模式、查看状态，并保持对话过程清晰可见。</h2>
+            <p class="section-note">这里集中放置回答设置、服务状态和变更确认，不会遮住主要对话区。</p>
           </div>
         </div>
 
         <div class="analysis-grid three-up">
           <article class="analysis-card">
-            <h4>当前路由</h4>
+            <h4>当前设置</h4>
             <div class="status-rows">
-              <div><span>主后端</span><strong>{{ runtimeSummary.backend }}</strong></div>
-              <div><span>模型档位</span><strong>{{ runtimeSummary.model }}</strong></div>
-              <div><span>回退链路</span><strong>{{ runtimeSummary.fallback }}</strong></div>
+              <div><span>当前引擎</span><strong>{{ runtimeSummary.backend }}</strong></div>
+              <div><span>回答模式</span><strong>{{ runtimeSummary.model }}</strong></div>
+              <div><span>备用方案</span><strong>{{ runtimeSummary.fallback }}</strong></div>
             </div>
             <p>{{ runtimeSummary.hint }}</p>
           </article>
@@ -310,13 +338,13 @@
             <h4>请求偏好</h4>
             <div class="control-stack">
               <label class="control-field">
-                <span>后端</span>
+                <span>回答引擎</span>
                 <select v-model="selectedBackend" :disabled="isSubmitting" @change="updateRuntimeSummaryFromOptions">
                   <option v-for="option in backendOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
                 </select>
               </label>
               <label class="control-field">
-                <span>模型档位</span>
+                <span>回答模式</span>
                 <select v-model="selectedModelProfile" :disabled="isSubmitting" @change="updateRuntimeSummaryFromOptions">
                   <option v-for="option in modelProfileOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
                 </select>
@@ -336,7 +364,7 @@
                 {{ isHealthChecking ? "检查中..." : "刷新健康" }}
               </button>
               <button type="button" class="ghost-btn" :disabled="isResettingSession" @click="resetSession()">
-                {{ isResettingSession ? "重置中..." : "重置会话" }}
+                {{ isResettingSession ? "处理中..." : "重新开始" }}
               </button>
             </div>
           </article>
@@ -347,9 +375,9 @@
         <div class="section-heading">
           <div>
             <p class="eyebrow">鸿栀预留位</p>
-            <h3>语音、设备、数字人和情绪结果都保留结构入口，但不伪造后端能力</h3>
+            <h3>语音、设备、数字形象和情绪建议都已预留位置，会在后续版本逐步开放</h3>
           </div>
-          <p class="section-note">这些区域当前只承担信息架构角色，等后端接口齐备后再接通。</p>
+          <p class="section-note">当前版本先把文本体验做好，后续能力会在准备完成后逐步接入。</p>
         </div>
 
         <div class="analysis-grid two-up">
@@ -366,10 +394,7 @@
           <div class="section-heading">
             <div>
               <p class="eyebrow">对话区</p>
-              <h3>当前会话</h3>
-            </div>
-            <div class="tool-chip-row" v-if="lastToolsUsed.length">
-              <span v-for="tool in lastToolsUsed" :key="tool" class="tool-chip">{{ tool }}</span>
+              <h3>当前对话</h3>
             </div>
           </div>
 
@@ -387,7 +412,7 @@
               v-model="composerText"
               rows="5"
               :disabled="isSubmitting"
-              placeholder="例如：请先读 README，再用中文说明当前前端还缺哪些最小接口。"
+              placeholder="例如：请先介绍这套本地工作台能做什么。"
               @keydown="handleComposerKeydown"
             ></textarea>
             <div class="composer-meta">
@@ -396,10 +421,10 @@
             </div>
             <div class="composer-actions">
               <button type="button" class="ghost-btn" :disabled="!lastTrace.length" @click="traceVisible = !traceVisible">
-                {{ traceVisible ? "收起执行链路" : traceButtonText }}
+                {{ traceVisible ? "收起处理过程" : traceButtonText }}
               </button>
               <button type="submit" class="primary-btn" :disabled="isSubmitting">
-                {{ isSubmitting ? "发送中..." : "发送请求" }}
+                {{ isSubmitting ? "发送中..." : "发送" }}
               </button>
             </div>
           </form>
@@ -410,7 +435,7 @@
             <div class="section-heading">
               <div>
                 <p class="eyebrow">快捷提问</p>
-                <h3>联调入口</h3>
+                <h3>常用问题</h3>
               </div>
             </div>
             <div class="suggestion-list">
@@ -423,7 +448,7 @@
           <section v-show="traceVisible" class="report-card side-card">
             <div class="section-heading">
               <div>
-                <p class="eyebrow">执行链路</p>
+                <p class="eyebrow">处理过程</p>
                 <h3>最近一次请求</h3>
               </div>
             </div>
@@ -433,11 +458,11 @@
           <section id="chat-patch" class="report-card side-card" v-if="pendingPatch || patchHistory.length">
             <div class="section-heading">
               <div>
-                <p class="eyebrow">补丁确认</p>
-                <h3>{{ pendingPatch ? "待确认变更" : "最近补丁记录" }}</h3>
+                <p class="eyebrow">变更确认</p>
+                <h3>{{ pendingPatch ? "待确认变更" : "最近变更记录" }}</h3>
               </div>
               <button v-if="pendingPatch" type="button" class="primary-btn" :disabled="isApplyingPatch" @click="applyPatch()">
-                {{ isApplyingPatch ? "应用中..." : "应用补丁" }}
+                {{ isApplyingPatch ? "应用中..." : "应用变更" }}
               </button>
             </div>
 
@@ -479,11 +504,11 @@
     </section>
 
     <section v-show="currentView === 'docs'" class="page-view page-view-docs">
-      <section id="docs-overview" class="report-card view-intro-card">
+      <section id="docs-overview" class="report-card view-intro-card docs-support-card">
         <div class="section-heading">
           <div>
             <p class="eyebrow">项目手册</p>
-            <h2>README 双语手册页改成更适合展示、评审和连续阅读的蓝白报告结构。</h2>
+            <h2>双语手册适合连续阅读，也适合随时带着问题返回对话区。</h2>
             <p class="section-note">保留同源内容和阅读进度，只收束掉视觉噪声，让层级、代码块、列表和引用块更稳。</p>
           </div>
           <div class="docs-toolbar">
@@ -510,7 +535,7 @@
               <article class="metric-card compact">
                 <span>章节</span>
                 <strong>{{ docsHeadings.length }}</strong>
-                <p>从 README 自动提取</p>
+                <p>从当前文档提取</p>
               </article>
               <article class="metric-card compact">
                 <span>预计阅读</span>
@@ -520,7 +545,7 @@
             </div>
 
             <div class="inline-actions">
-              <button type="button" class="primary-btn" @click="enterChatFromDocs()">带着手册去工作台</button>
+              <button type="button" class="primary-btn" @click="enterChatFromDocs()">带着问题去对话</button>
               <button type="button" class="ghost-btn" @click="loadDocs(docsLanguage, { force: true, resetScroll: true })">重新加载手册</button>
             </div>
           </div>
@@ -535,14 +560,14 @@
             </button>
           </article>
           <article v-else class="docs-summary-card docs-summary-card-empty">
-            <strong>章节摘要会在 README 加载完成后生成</strong>
+            <strong>章节摘要会在文档加载完成后生成</strong>
             <p>这里会优先展示当前文档的前几个核心章节，方便投屏和扫读。</p>
           </article>
         </div>
       </section>
 
-      <div id="docs-reader" class="docs-reader-layout">
-        <section class="report-card docs-info-card">
+      <div id="docs-reader" class="docs-reader-layout" :class="{ compact: isSidebarCollapsed }">
+        <section v-if="!isSidebarCollapsed" class="report-card docs-info-card">
           <div class="section-heading">
             <div>
               <p class="eyebrow">阅读摘要</p>
@@ -571,7 +596,7 @@
 
         <article id="docsArticle" class="report-card docs-article">
           <div class="docs-reader-shell">
-            <div v-if="docsState.renderMode === 'placeholder'" class="docs-placeholder"><p>点击“阅读手册”后，将直接读取仓库中的 README。</p></div>
+            <div v-if="docsState.renderMode === 'placeholder'" class="docs-placeholder"><p>点击“阅读手册”后，将加载当前版本说明。</p></div>
             <div v-else-if="docsState.renderMode === 'loading'" class="docs-loading"><p>正在加载 {{ docsSourceName }} ...</p></div>
             <div v-else-if="docsState.renderMode === 'error'" class="docs-error"><p>{{ docsState.errorMessage }}</p></div>
             <div v-else class="docs-content prose" v-html="docsState.html"></div>
@@ -589,11 +614,12 @@
     </div>
   </div>
 </div>
+</div>
 
-<script defer src="/vendor/vue.global.prod.js"></script>
-<script defer src="/scripts/core.js"></script>
-<script defer src="/scripts/markdown.js"></script>
-<script defer src="/scripts/vue/workspace-app.js"></script>
-<script defer src="/app.js"></script>
+<script defer src="/vendor/vue.global.prod.js?v=1.0.5"></script>
+<script defer src="/scripts/core.js?v=1.0.5"></script>
+<script defer src="/scripts/markdown.js?v=1.0.5"></script>
+<script defer src="/scripts/vue/workspace-app.js?v=1.0.5"></script>
+<script defer src="/app.js?v=1.0.5"></script>
 </body>
 </html>

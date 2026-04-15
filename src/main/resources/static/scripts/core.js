@@ -75,13 +75,13 @@ window.HongzhiFrontend.utils = (() => {
   function localizeSelectionMode(mode) {
     switch (mode) {
       case "profile":
-        return "手动档位";
+        return "手动模式";
       case "backend":
-        return "手动后端";
+        return "手动引擎";
       case "fallback":
         return "自动回退";
       case "auto":
-        return "自动路由";
+        return "自动推荐";
       default:
         return "未标注模式";
     }
@@ -110,13 +110,6 @@ window.HongzhiFrontend.utils = (() => {
     return parts[parts.length - 1] || text || "未知";
   }
 
-  function shortenSessionId(sessionId) {
-    if (!sessionId) {
-      return "未知";
-    }
-    return sessionId.length > 10 ? `${sessionId.slice(0, 8)}...` : sessionId;
-  }
-
   function shortenPath(path) {
     const value = String(path || "");
     const parts = value.split(/[\\/]/).filter(Boolean);
@@ -131,7 +124,7 @@ window.HongzhiFrontend.utils = (() => {
   }
 
   function getDocsSourceName(language) {
-    return normalizeDocsLanguage(language) === "en" ? "README.en.md" : "README.md";
+    return normalizeDocsLanguage(language) === "en" ? "English Guide" : "中文说明";
   }
 
   function getDocsLanguageLabel(language) {
@@ -150,7 +143,6 @@ window.HongzhiFrontend.utils = (() => {
     localizeSelectionMode,
     localizeStatus,
     shortenModelIdentifier,
-    shortenSessionId,
     shortenPath,
     normalizeDocsLanguage,
     getDocsSourceName,

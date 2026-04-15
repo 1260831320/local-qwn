@@ -1,9 +1,18 @@
-﻿.page-view-docs { gap: 24px; }
+.page-view-docs { gap: 24px; }
+#docs-reader { order: 1; }
+#docs-overview { order: 2; }
 .docs-toolbar {
   display: flex;
   flex-direction: column;
   gap: 16px;
   min-width: min(100%, 460px);
+}
+.docs-support-card {
+  background: linear-gradient(135deg, rgba(79, 156, 246, 0.05), rgba(255, 255, 255, 0.95));
+}
+.docs-support-card .section-heading h2 {
+  font-size: clamp(28px, 3vw, 36px);
+  max-width: 20ch;
 }
 .docs-summary-strip {
   display: grid;
@@ -51,9 +60,13 @@
   grid-template-columns: minmax(260px, 0.6fr) minmax(0, 1.4fr);
   gap: 16px;
 }
+.docs-reader-layout.compact {
+  grid-template-columns: 1fr;
+}
 .docs-info-card, .docs-article { padding: 24px; }
 .docs-article { min-height: 760px; }
 .docs-reader-shell { max-width: 920px; margin: 0 auto; }
+.docs-reader-layout.compact .docs-reader-shell { max-width: min(1180px, 100%); }
 .docs-placeholder, .docs-loading, .docs-error {
   display: flex;
   align-items: center;

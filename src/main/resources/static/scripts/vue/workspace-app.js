@@ -27,88 +27,88 @@ window.HongzhiFrontend.createWorkspaceApp = () => {
   };
 
   const NAV_ITEMS = [
-    { id: "welcome", label: "总览", note: "项目定位、流程与对比" },
-    { id: "chat", label: "工作台", note: "请求路由、对话与补丁确认" },
-    { id: "docs", label: "手册", note: "README 同源阅读与章节导航" }
+    { id: "welcome", label: "总览", note: "了解功能与使用方式" },
+    { id: "chat", label: "工作台", note: "开始对话与确认变更" },
+    { id: "docs", label: "手册", note: "阅读说明与常见内容" }
   ];
 
   const VIEW_SECTIONS = {
     welcome: [
-      { anchor: "welcome-hero", label: "概览" },
-      { anchor: "welcome-inputs", label: "输入与边界" },
-      { anchor: "welcome-workflow", label: "流程分析" },
-      { anchor: "welcome-compare", label: "后端对比" },
-      { anchor: "welcome-run", label: "运行说明" }
+      { anchor: "welcome-hero", label: "亮点" },
+      { anchor: "welcome-workflow", label: "使用流程" },
+      { anchor: "welcome-inputs", label: "你可以做什么" },
+      { anchor: "welcome-compare", label: "模式选择" },
+      { anchor: "welcome-run", label: "更多信息" }
     ],
     chat: [
-      { anchor: "chat-runtime", label: "运行态" },
-      { anchor: "chat-signals", label: "扩展位" },
-      { anchor: "chat-conversation", label: "会话" },
-      { anchor: "chat-patch", label: "补丁确认" }
+      { anchor: "chat-conversation", label: "对话" },
+      { anchor: "chat-runtime", label: "偏好与状态" },
+      { anchor: "chat-signals", label: "预留功能" },
+      { anchor: "chat-patch", label: "变更确认" }
     ],
     docs: [
-      { anchor: "docs-overview", label: "概览" },
-      { anchor: "docs-reader", label: "正文" }
+      { anchor: "docs-reader", label: "正文" },
+      { anchor: "docs-overview", label: "摘要" }
     ]
   };
 
   const WELCOME_INPUT_CARDS = [
     {
       id: "source",
-      title: "输入源",
-      description: "当前前端真正依赖的数据入口。",
-      items: ["README.md / README.en.md", "GET /api/runtime/options", "GET /api/health"]
+      title: "你可以做什么",
+      description: "常用入口已经收在同一处。",
+      items: ["阅读当前版本说明", "和本地模型直接对话", "在确认后应用变更"]
     },
     {
       id: "boundary",
-      title: "执行边界",
-      description: "当前系统已经明确的安全约束。",
-      items: ["文件操作限定在工作区内部", "补丁必须先预览再确认应用", "不提供给模型直接 raw shell 执行"]
+      title: "安心使用",
+      description: "所有重要动作都会先给出明确反馈。",
+      items: ["涉及写入时会先预览", "只在当前工作区内处理文件", "未开放的能力不会假装可用"]
     },
     {
       id: "goal",
-      title: "当前目标",
-      description: "强调阶段性验证，不假装已经完成 A22 全量能力。",
-      items: ["验证本地部署与本地推理", "验证受控工具调用与多后端路由", "为鸿栀后续多模态链路预留扩展位"]
+      title: "当前重点",
+      description: "先把现在真正可用的体验做好。",
+      items: ["优先保证本地可用", "优先保证界面清晰易用", "为后续扩展保留位置"]
     }
   ];
 
   const WORKFLOW_STEPS = [
     {
       id: "runtime",
-      label: "运行态识别",
-      title: "先确认机器、后端与默认档位",
-      description: "所有联调都应该从运行态开始，避免误判当前请求会走哪条链路。",
-      input: "机器档案、后端配置、模型档位",
-      output: "当前主后端、默认代码档位、回退链路",
-      note: "OpenVINO 已验证本地轻量推理，但现在还不是 Ollama 的编码等价替代。"
+      label: "先看状态",
+      title: "先确认服务和当前模式",
+      description: "开始前先看系统是否可用，以及当前会使用哪种回答模式。",
+      input: "系统状态与当前设置",
+      output: "当前引擎、回答模式、可用状态",
+      note: "如果某个服务暂时不可用，界面会直接展示当前状态。"
     },
     {
       id: "docs",
-      label: "文档同步",
-      title: "直接从 README 建立项目上下文",
-      description: "手册页直接读取仓库 README，减少说明文字与实际代码长期分叉。",
-      input: "README.md / README.en.md",
-      output: "章节索引、阅读进度、运行说明",
-      note: "适合先扫读结构与边界，再决定是否进入聊天联调。"
+      label: "再看手册",
+      title: "从手册快速了解功能",
+      description: "手册页提供当前版本说明、功能摘要和章节导航。",
+      input: "当前说明文档",
+      output: "功能摘要、章节目录、阅读进度",
+      note: "适合先了解整体，再进入对话。"
     },
     {
       id: "chat",
-      label: "请求联调",
-      title: "在受控工作台里发起实际请求",
-      description: "保留后端选择、档位选择、trace 和工具链反馈，但不再拆成多块互相抢焦点的面板。",
-      input: "自然语言请求、后端偏好、模型档位",
-      output: "回答内容、工具使用记录、执行链路",
-      note: "中文优先，保留自动路由和回退能力。"
+      label: "开始对话",
+      title: "直接提出问题或任务",
+      description: "聊天区优先展示对话本身，常用提问和变更确认放在侧边。",
+      input: "你的问题、当前偏好",
+      output: "回答内容、处理过程、建议动作",
+      note: "如果你手动切换模式，系统会按你的选择回答。"
     },
     {
       id: "patch",
-      label: "补丁确认",
-      title: "所有写入仍通过预览与确认",
-      description: "前端不跳过补丁信任边界，让写入操作保持可读、可审查、可回顾。",
-      input: "pendingPatch、patch preview、sessionId",
-      output: "应用结果、失败原因、补丁记录",
-      note: "这是当前工作台最重要的可信边界之一。"
+      label: "确认变更",
+      title: "变更前先看一眼",
+      description: "涉及写入时会先展示预览，确认后才会真正应用。",
+      input: "待确认内容",
+      output: "应用结果、失败提醒、最近记录",
+      note: "这是当前版本最重要的安全边界之一。"
     }
   ];
 
@@ -116,63 +116,63 @@ window.HongzhiFrontend.createWorkspaceApp = () => {
     {
       id: "ollama",
       name: "Ollama",
-      emphasis: "当前更适合编码联调",
-      principle: "作为当前本地大模型主链路，更适合复杂推理、代码理解和补丁相关任务。",
-      advantages: ["编码任务适配度更高", "联调路径更成熟", "适合作为当前默认主后端"],
-      limits: ["资源占用更高", "对普通硬件压力更明显"],
-      linkage: "当请求偏向代码理解、补丁修改或复杂工具链时，更适合优先保持在这条路线。"
+      emphasis: "更适合复杂问题",
+      principle: "更适合连续对话、较长回答和更复杂的任务。",
+      advantages: ["回答通常更完整", "复杂问题表现更稳定", "当前默认体验更成熟"],
+      limits: ["资源占用更高", "对设备压力更明显"],
+      linkage: "如果你希望回答更完整或问题更复杂，通常更适合选择这一路线。"
     },
     {
       id: "openvino",
       name: "OpenVINO",
-      emphasis: "当前更偏轻量本地验证",
-      principle: "通过本地 Python 进程完成推理，已经验证普通设备上的轻量本地部署可行性。",
-      advantages: ["更强调本地部署可达性", "适合轻量写作和助手场景", "为后续端侧路线保留空间"],
-      limits: ["当前不是 Ollama 的编码等价替代", "更依赖特定设备与模型验证环境"],
-      linkage: "当目标是验证端侧推理链路、设备适配或低成本运行时，这条路线更有价值。"
+      emphasis: "更适合轻量使用",
+      principle: "更适合轻量问答和更节省资源的本地体验。",
+      advantages: ["占用更轻", "普通设备更容易运行", "适合短问短答"],
+      limits: ["复杂任务表现更保守", "当前不适合作为重度代码模式"],
+      linkage: "如果你更看重轻量和低成本运行，这一路线会更合适。"
     }
   ];
 
   const RUN_GUIDE_CARDS = [
     {
       id: "entry",
-      title: "入口与内容源",
-      path: "src/main/resources/static/index.html",
-      description: "前端由 Spring Boot 直接托管，手册内容以 README.md / README.en.md 为唯一同源来源。"
+      title: "打开即用",
+      path: "在浏览器中访问 http://localhost:8080",
+      description: "首页会汇总总览、工作台和手册入口。"
     },
     {
       id: "check",
-      title: "最小检查顺序",
-      path: "GET /api/health → GET /api/runtime/options → GET /api/docs/{language}",
-      description: "先确认健康与路由，再进入手册或聊天联调，不要反过来。"
+      title: "先读手册",
+      path: "手册页支持 中文 / English",
+      description: "适合先了解当前版本能做什么，再决定下一步。"
     },
     {
       id: "write",
-      title: "写入链路",
-      path: "POST /api/chat → pendingPatch → POST /api/patch/apply",
-      description: "任何代码修改仍经过预览与确认，不允许直接跳过。"
+      title: "安全确认",
+      path: "所有变更都会先预览再确认",
+      description: "你始终可以先看到将要发生的变化。"
     }
   ];
 
   const RESERVE_CARDS = [
-    { id: "voice", title: "语音模式入口", description: "界面保留模式切换位，但当前不接通 ASR / TTS。", status: "现状：仅文本" },
-    { id: "device", title: "麦克风 / 摄像头状态", description: "结构位已预留，前端不伪造本机设备状态。", status: "现状：未采集" },
-    { id: "avatar", title: "数字人状态区", description: "后续可接立绘、口型、表情或 2D / 3D 驱动，现在只保留占位结构。", status: "现状：占位" },
-    { id: "emotion", title: "情绪理解 / 干预结果", description: "为未来风险识别、干预建议与再评估结果预留前端承接位置。", status: "现状：等待接口" }
+    { id: "voice", title: "语音模式", description: "界面已经预留入口，当前先提供稳定文本体验。", status: "现状：稍后开放" },
+    { id: "device", title: "设备连接", description: "麦克风和摄像头区域已经预留，当前不会伪造连接状态。", status: "现状：未启用" },
+    { id: "avatar", title: "数字形象", description: "后续会接入更完整的形象表达，当前先保留展示位置。", status: "现状：占位" },
+    { id: "emotion", title: "情绪建议", description: "相关结果区已经预留，当前版本暂未开放。", status: "现状：等待更新" }
   ];
 
   const CHAT_SUGGESTIONS = [
-    { id: "overview", label: "项目概览", message: "请列出项目根目录的关键文件，并用中文总结当前能力。" },
-    { id: "architecture", label: "解释架构", message: "请读取 pom.xml，并用中文解释当前前后端结构。" },
-    { id: "runtime", label: "检查运行时", message: "请根据当前运行时配置说明这次请求大概率会走哪个后端。" },
-    { id: "next-step", label: "继续联调", message: "请基于当前 README 总结前后端职责边界，并给出下一步联调重点。" }
+    { id: "overview", label: "这能做什么", message: "请用简洁中文介绍这套本地工作台能做什么。" },
+    { id: "getting-started", label: "怎么开始", message: "我是第一次使用，请告诉我先看哪里、再做什么。" },
+    { id: "status", label: "看看状态", message: "请结合当前状态，告诉我现在适合做什么。" },
+    { id: "manual", label: "总结手册", message: "请根据当前手册内容，总结最值得先看的三个要点。" }
   ];
 
   const SIGNAL_CARDS = [
-    { id: "voice", label: "语音模式", title: "入口已预留", description: "未来可接 ASR / TTS；当前只接收文本输入并返回文本结果。" },
-    { id: "device", label: "设备状态", title: "暂不读取本机采集能力", description: "麦克风和摄像头只保留结构位，不伪造已连接效果。" },
-    { id: "avatar", label: "数字人状态", title: "等待头像驱动链路", description: "后续可接 2D / 3D 形象、口型与表情驱动，当前没有对应接口。" },
-    { id: "emotion", label: "情绪理解 / 干预", title: "等待结构化结果", description: "这里将来用于承接风险判断、干预建议和再评估结果，当前接口尚未提供。" }
+    { id: "voice", label: "语音模式", title: "后续开放", description: "当前先提供稳定的文本体验，语音入口已预留。" },
+    { id: "device", label: "设备连接", title: "稍后接入", description: "麦克风和摄像头区域已经预留，当前不会伪造连接状态。" },
+    { id: "avatar", label: "数字形象", title: "等待升级", description: "后续会接入更完整的形象表达，当前先保留展示位置。" },
+    { id: "emotion", label: "情绪建议", title: "持续完善中", description: "相关结果区已经预留，当前版本暂未开放。" }
   ];
 
   const DOCS_LANGUAGES = [
@@ -183,23 +183,23 @@ window.HongzhiFrontend.createWorkspaceApp = () => {
   const DOCS_PIPELINE_STEPS = [
     {
       id: "source",
-      title: "README 源文件",
-      description: "正文直接来自仓库 README.md / README.en.md。"
+      title: "双语阅读",
+      description: "你可以在中文和 English 之间切换。"
     },
     {
       id: "render",
-      title: "前端解析",
-      description: "本地 Markdown 渲染负责标题、列表、代码块和引用块结构。"
+      title: "章节定位",
+      description: "左侧目录和摘要卡片可以快速跳到重点。"
     },
     {
       id: "reading",
-      title: "阅读联动",
-      description: "章节索引、阅读进度和当前锚点保持同步。"
+      title: "阅读进度",
+      description: "页面顶部会显示当前阅读进度。"
     },
     {
       id: "handoff",
-      title: "带着手册去工作台",
-      description: "从文档页直接切回聊天页，继续联调或提问。"
+      title: "继续提问",
+      description: "看完后可以直接带着问题回到工作台。"
     }
   ];
 
@@ -237,7 +237,7 @@ window.HongzhiFrontend.createWorkspaceApp = () => {
       visual: "idle",
       detail: "等待健康检查",
       headline: "等待健康检查",
-      summary: "这里会显示当前应用、主后端以及两个推理通道的状态。",
+      summary: "这里会显示当前服务、回答引擎和整体状态。",
       spring: "未检查",
       backend: "未检查",
       ollama: "未检查",
@@ -248,7 +248,7 @@ window.HongzhiFrontend.createWorkspaceApp = () => {
   function createInitialDocsState() {
     return {
       title: "项目说明",
-      meta: "点击“阅读手册”后会直接加载仓库 README。",
+      meta: "点击“阅读手册”后会加载当前版本说明。",
       renderMode: "placeholder",
       html: "",
       errorMessage: "",
@@ -302,11 +302,31 @@ window.HongzhiFrontend.createWorkspaceApp = () => {
         docsState: createInitialDocsState(),
         toasts: [],
         viewScroll: { welcome: 0, chat: 0, docs: 0 },
-        showBackToTop: false
+        showBackToTop: false,
+        topDockCompact: false,
+        sidebarExpanded: true
       };
     },
 
     computed: {
+      isSidebarCollapsed() {
+        return !this.sidebarExpanded;
+      },
+
+      currentViewLabel() {
+        return VIEW_LABELS[this.currentView] || VIEW_LABELS.welcome;
+      },
+
+      sidebarToggleText() {
+        return this.isSidebarCollapsed ? "展开" : "收起侧栏";
+      },
+
+      sidebarToggleHint() {
+        return this.currentView === "welcome"
+          ? "首页默认展开"
+          : "工作台与手册默认折叠";
+      },
+
       topHealthLabel() {
         return TOP_HEALTH_LABELS[this.healthState.visual] || TOP_HEALTH_LABELS.fail;
       },
@@ -348,19 +368,19 @@ window.HongzhiFrontend.createWorkspaceApp = () => {
 
         return [
           {
-            label: "主后端",
+            label: "当前引擎",
             value: backendValue,
-            note: this.healthState.visual === "idle" ? "等待健康检查完成" : "来自 /api/health 与运行时摘要"
+            note: this.healthState.visual === "idle" ? "等待状态更新" : "当前可用的回答服务"
           },
           {
-            label: "默认代码档位",
+            label: "回答模式",
             value: this.runtimeSummary.welcomeCodeProfile,
-            note: "来自 /api/runtime/options"
+            note: "当前推荐模式"
           },
           {
-            label: "写入边界",
-            value: this.pendingPatch ? "有待确认补丁" : "预览前不写入",
-            note: this.pendingPatch?.path ? utils.shortenPath(this.pendingPatch.path) : "仍通过 preview + apply"
+            label: "变更状态",
+            value: this.pendingPatch ? "待你确认" : "安全预览",
+            note: this.pendingPatch?.path ? utils.shortenPath(this.pendingPatch.path) : "涉及写入时会先预览"
           }
         ];
       },
@@ -396,20 +416,17 @@ window.HongzhiFrontend.createWorkspaceApp = () => {
       },
 
       traceText() {
-        return this.lastTrace.length ? this.lastTrace.join("\n\n") : "当前还没有可显示的执行链路。";
+        return this.lastTrace.length ? this.lastTrace.join("\n\n") : "当前还没有可显示的处理过程。";
       },
 
       traceButtonText() {
-        return this.lastTrace.length ? `查看执行链路 (${this.lastTrace.length})` : "查看执行链路";
+        return this.lastTrace.length ? `查看处理过程 (${this.lastTrace.length})` : "查看处理过程";
       },
 
       patchMetaItems() {
         const items = [];
         if (this.pendingPatch?.path) {
           items.push(`文件：${this.pendingPatch.path}`);
-        }
-        if (this.pendingPatch?.patchId) {
-          items.push(`Patch ID：${this.pendingPatch.patchId}`);
         }
         return items;
       },
@@ -500,13 +517,13 @@ window.HongzhiFrontend.createWorkspaceApp = () => {
         const resolvedBackend = selectedBackend === "auto"
           ? (profile?.backend || this.runtimeOptions.configuredBackend || "auto")
           : selectedBackend;
-        const modeLabel = selectedProfileId === "auto" ? "当前按默认档位推断" : "当前按手动档位锁定";
+        const modeLabel = selectedProfileId === "auto" ? "当前使用推荐设置" : "当前使用手动选择";
 
         this.runtimeSummary.welcomeMachine = this.runtimeOptions.machineProfile || "未标注";
         this.runtimeSummary.welcomeBackend = utils.formatBackendLabel(this.runtimeOptions.configuredBackend || "auto");
         this.runtimeSummary.welcomeCodeProfile = this.formatProfileLabel(this.runtimeOptions.autoCodeProfile || "auto");
         this.runtimeSummary.welcomeGeneralProfile = this.formatProfileLabel(this.runtimeOptions.autoGeneralProfile || "auto");
-        this.runtimeSummary.welcomeHint = `默认主后端为 ${utils.formatBackendLabel(this.runtimeOptions.configuredBackend || "auto")}，代码档位为 ${this.formatProfileLabel(this.runtimeOptions.autoCodeProfile || "auto")}，通用档位为 ${this.formatProfileLabel(this.runtimeOptions.autoGeneralProfile || "auto")}。`;
+        this.runtimeSummary.welcomeHint = `当前推荐引擎为 ${utils.formatBackendLabel(this.runtimeOptions.configuredBackend || "auto")}，回答模式为 ${this.formatProfileLabel(this.runtimeOptions.autoCodeProfile || "auto")}，通用模式为 ${this.formatProfileLabel(this.runtimeOptions.autoGeneralProfile || "auto")}。`;
         this.runtimeSummary.welcomeHintError = false;
 
         this.runtimeSummary.machineProfile = this.runtimeOptions.machineProfile || "未标注";
@@ -515,8 +532,8 @@ window.HongzhiFrontend.createWorkspaceApp = () => {
         this.runtimeSummary.fallback = utils.formatFallbackLabel(this.runtimeOptions.configuredFallbackBackend);
         this.runtimeSummary.modelProfile = this.formatProfileLabel(derivedProfileId);
         this.runtimeSummary.modelBackend = utils.formatBackendLabel(profile?.backend || resolvedBackend);
-        this.runtimeSummary.modelFull = profile?.model || "由后端按请求类型自动决定";
-        this.runtimeSummary.hint = `${modeLabel}，仍保留后端自动路由与回退能力。`;
+        this.runtimeSummary.modelFull = profile?.model || "系统会自动选择更合适的模型";
+        this.runtimeSummary.hint = `${modeLabel}，系统会在需要时自动回退。`;
         this.runtimeSummary.hintError = false;
       },
 
@@ -524,9 +541,8 @@ window.HongzhiFrontend.createWorkspaceApp = () => {
         const resolvedBackend = response.backend || this.selectedBackend || this.runtimeOptions?.configuredBackend || "auto";
         const resolvedProfileId = response.modelProfile || this.selectedModelProfile || this.resolveDefaultProfileId(resolvedBackend);
         const profile = this.findProfileOption(resolvedProfileId);
-        const fallbackText = response.fallbackUsed ? "本次请求触发了回退链路。" : "本次请求未触发回退。";
+        const fallbackText = response.fallbackUsed ? "本次回答已切换到备用引擎。" : "本次回答未使用备用引擎。";
         const selectionMode = utils.localizeSelectionMode(response.selectionMode);
-        const selectionReason = response.selectionReason ? ` 原因：${response.selectionReason}` : "";
 
         this.runtimeSummary.backend = utils.formatBackendLabel(resolvedBackend);
         this.runtimeSummary.model = this.formatProfileLabel(resolvedProfileId);
@@ -534,7 +550,7 @@ window.HongzhiFrontend.createWorkspaceApp = () => {
         this.runtimeSummary.modelProfile = this.formatProfileLabel(resolvedProfileId);
         this.runtimeSummary.modelBackend = utils.formatBackendLabel(profile?.backend || resolvedBackend);
         this.runtimeSummary.modelFull = response.model || profile?.model || "未返回模型标识";
-        this.runtimeSummary.hint = `本次命中 ${utils.formatBackendLabel(resolvedBackend)} / ${this.formatProfileLabel(resolvedProfileId)}，${selectionMode}。${fallbackText}${selectionReason}`;
+        this.runtimeSummary.hint = `本次使用 ${utils.formatBackendLabel(resolvedBackend)} / ${this.formatProfileLabel(resolvedProfileId)}，当前为${selectionMode}。${fallbackText}`;
         this.runtimeSummary.hintError = false;
       },
 
@@ -552,7 +568,7 @@ window.HongzhiFrontend.createWorkspaceApp = () => {
         this.healthState.visual = "idle";
         this.healthState.detail = "等待健康检查";
         this.healthState.headline = "等待健康检查";
-        this.healthState.summary = "这里会显示当前应用、主后端以及两个推理通道的状态。";
+        this.healthState.summary = "这里会显示当前服务、回答引擎和整体状态。";
         this.healthState.spring = "未检查";
         this.healthState.backend = "未检查";
         this.healthState.ollama = "未检查";
@@ -563,12 +579,16 @@ window.HongzhiFrontend.createWorkspaceApp = () => {
         this.healthState.visual = "checking";
         this.healthState.detail = "正在检查当前本地服务状态";
         this.healthState.headline = "正在检查本地服务";
-        this.healthState.summary = "正在检查 Spring Boot、主后端以及两个推理通道。";
+        this.healthState.summary = "正在检查当前服务和可用引擎。";
       },
 
       renderHealthSnapshot(data, visualState) {
         const backendLabel = utils.formatBackendLabel(data.backend);
-        const summary = data.message || `当前主后端为 ${backendLabel}。`;
+        const summary = visualState === "ok"
+          ? `当前服务可用，正在使用 ${backendLabel}。`
+          : visualState === "degraded"
+            ? `当前服务可用，但部分能力可能受限，当前使用 ${backendLabel}。`
+            : `当前服务暂不可用，请稍后再试。`;
         const headline = visualState === "ok"
           ? `服务可用 · ${backendLabel}`
           : visualState === "degraded"
@@ -578,7 +598,7 @@ window.HongzhiFrontend.createWorkspaceApp = () => {
         this.healthState.visual = visualState;
         this.healthState.detail = [
           `应用 ${utils.localizeStatus(data.spring)}`,
-          `后端 ${backendLabel}`,
+          `引擎 ${backendLabel}`,
           `Ollama ${utils.localizeStatus(data.ollama)}`,
           `OpenVINO ${utils.localizeStatus(data.openvino)}`,
           data.machineProfile ? `机器 ${data.machineProfile}` : ""
@@ -656,14 +676,32 @@ window.HongzhiFrontend.createWorkspaceApp = () => {
         window.history[method]({ view: nextView, language: nextLanguage }, "", nextPath);
       },
 
+      syncSidebarState(view, options = {}) {
+        if (options.preserveSidebarState) {
+          return;
+        }
+        this.sidebarExpanded = view === "welcome";
+      },
+
+      toggleSidebar() {
+        this.sidebarExpanded = !this.sidebarExpanded;
+        this.$nextTick(() => {
+          this.queueViewportUpdate();
+        });
+      },
+
       switchView(view, options = {}) {
         if (!Object.prototype.hasOwnProperty.call(VIEW_LABELS, view)) {
           return;
         }
 
+        const previousView = this.currentView;
         this.viewScroll[this.currentView] = window.scrollY;
         this.currentView = view;
         this.activeViewAnchor = (VIEW_SECTIONS[view] || [])[0]?.anchor || "";
+        if (view !== previousView) {
+          this.syncSidebarState(view, options);
+        }
 
         if (!options.skipHistory) {
           this.syncLocationState({ replace: Boolean(options.replaceHistory) });
@@ -699,8 +737,8 @@ window.HongzhiFrontend.createWorkspaceApp = () => {
       enterChatFromDocs() {
         if (!this.composerText.trim()) {
           this.composerText = this.docsLanguage === "en"
-            ? "I just reviewed the README. Please summarize the current architecture and the next debugging steps in Chinese."
-            : "我刚看完 README，请基于当前仓库文档整理架构、运行方式和下一步联调重点。";
+            ? "I just finished the guide. Please summarize the most useful things to try first in Chinese."
+            : "我刚看完手册，请用中文帮我总结当前版本最值得先体验的功能。";
         }
         this.switchView("chat", { focusComposer: true });
       },
@@ -745,7 +783,7 @@ window.HongzhiFrontend.createWorkspaceApp = () => {
           id: crypto.randomUUID(),
           role: "assistant",
           label: "鸿栀",
-          html: createPlainHtml("我是鸿栀当前的文本工作台前端。这里仍以本地推理、README 阅读、受控工具调用和补丁确认流程为主，语音、数字人和情绪干预暂时只保留结构位。"),
+          html: createPlainHtml("欢迎来到鸿栀。你可以在这里阅读说明、发起对话、查看状态，并在确认后应用变更。"),
           pending: false
         }];
       },
@@ -812,14 +850,14 @@ window.HongzhiFrontend.createWorkspaceApp = () => {
           this.setMessageContent(pendingMessage, data.answer || "模型返回了空响应。", { markdown: true });
           pendingMessage.pending = false;
 
-          this.setRequestStatus("idle", data.fallbackUsed ? "状态：已完成，触发回退链路" : "状态：已完成");
+          this.setRequestStatus("idle", data.fallbackUsed ? "状态：已完成，已切换到备用引擎" : "状态：已完成");
 
           if (data.pendingPatch) {
-            this.showToast("已生成补丁预览，确认后可直接应用。", "info");
+            this.showToast("已生成变更预览，确认后可直接应用。", "info");
           } else if (data.fallbackUsed) {
             this.showToast(`本次请求已回退到 ${utils.formatBackendLabel(data.backend)}。`, "warning");
           } else {
-            this.showToast(`请求已完成，命中 ${utils.formatBackendLabel(data.backend)}。`, "success");
+            this.showToast(`请求已完成，当前使用 ${utils.formatBackendLabel(data.backend)}。`, "success");
           }
         } catch (error) {
           this.setMessageContent(pendingMessage, `请求失败：${error.message}`);
@@ -843,7 +881,7 @@ window.HongzhiFrontend.createWorkspaceApp = () => {
           id: crypto.randomUUID(),
           path: patch.path || "未标注文件",
           success: Boolean(success),
-          message: message || (success ? "补丁已应用。" : "补丁应用失败。"),
+          message: message || (success ? "变更已应用。" : "变更应用失败。"),
           time: new Date().toLocaleString("zh-CN", { hour12: false })
         });
 
@@ -866,19 +904,19 @@ window.HongzhiFrontend.createWorkspaceApp = () => {
           });
 
           if (data.success) {
-            this.appendMessage("assistant", "鸿栀", `补丁已应用：${data.message}`);
+            this.appendMessage("assistant", "鸿栀", `变更已应用：${data.message}`);
             this.pushPatchHistory(applyingPatch, true, data.message);
             this.pendingPatch = null;
-            this.showToast("补丁已成功应用。", "success");
+            this.showToast("变更已成功应用。", "success");
           } else {
-            this.appendMessage("assistant", "鸿栀", `补丁应用失败：${data.message}`);
+            this.appendMessage("assistant", "鸿栀", `变更应用失败：${data.message}`);
             this.pushPatchHistory(applyingPatch, false, data.message);
-            this.showToast("补丁应用失败，请先检查预览内容。", "error");
+            this.showToast("变更应用失败，请先检查预览内容。", "error");
           }
         } catch (error) {
-          this.appendMessage("assistant", "鸿栀", `补丁应用失败：${error.message}`);
+          this.appendMessage("assistant", "鸿栀", `变更应用失败：${error.message}`);
           this.pushPatchHistory(applyingPatch, false, error.message);
-          this.showToast(`补丁应用失败：${error.message}`, "error");
+          this.showToast(`变更应用失败：${error.message}`, "error");
         } finally {
           this.isApplyingPatch = false;
         }
@@ -907,9 +945,9 @@ window.HongzhiFrontend.createWorkspaceApp = () => {
         this.composerText = "";
         this.resetChatLog();
         this.updateRuntimeSummaryFromOptions();
-        this.setRequestStatus("idle", "状态：新会话");
+        this.setRequestStatus("idle", "状态：已开始新的对话");
         this.isResettingSession = false;
-        this.showToast("已重置会话上下文。", "info");
+        this.showToast("已开始新的对话。", "info");
       },
 
       async refreshHealth(options = {}) {
@@ -958,7 +996,7 @@ window.HongzhiFrontend.createWorkspaceApp = () => {
         this.docsHeadings = [];
         this.activeDocsAnchor = "";
         this.docsState.title = normalizedLanguage === "en" ? "Project Guide" : "项目说明";
-        this.docsState.meta = `正在从 ${utils.getDocsSourceName(normalizedLanguage)} 读取内容。`;
+        this.docsState.meta = `正在加载 ${utils.getDocsSourceName(normalizedLanguage)}。`;
         this.docsState.renderMode = "loading";
         this.docsState.html = "";
         this.docsState.errorMessage = "";
@@ -976,7 +1014,7 @@ window.HongzhiFrontend.createWorkspaceApp = () => {
         this.docsHeadings = rendered.headings.filter((heading) => heading.level <= 3);
         this.activeDocsAnchor = this.docsHeadings[0]?.anchor || "";
         this.docsState.title = data.title || (language === "en" ? "Project Guide" : "项目说明");
-        this.docsState.meta = `${sourceName} · 直接读取仓库 README · 前端不维护额外副本。`;
+        this.docsState.meta = `${sourceName} · 当前版本说明`;
         this.docsState.renderMode = rendered.html ? "content" : "placeholder";
         this.docsState.html = rendered.html;
         this.docsState.errorMessage = "";
@@ -991,7 +1029,7 @@ window.HongzhiFrontend.createWorkspaceApp = () => {
         this.docsHeadings = [];
         this.activeDocsAnchor = "";
         this.docsState.title = normalizedLanguage === "en" ? "Project Guide" : "项目说明";
-        this.docsState.meta = `读取 ${utils.getDocsSourceName(normalizedLanguage)} 失败。`;
+        this.docsState.meta = `${utils.getDocsSourceName(normalizedLanguage)} 暂时无法加载。`;
         this.docsState.renderMode = "error";
         this.docsState.html = "";
         this.docsState.errorMessage = `文档加载失败：${message}`;
@@ -1118,6 +1156,7 @@ window.HongzhiFrontend.createWorkspaceApp = () => {
 
       updateViewportState() {
         this.showBackToTop = window.scrollY > 560;
+        this.topDockCompact = window.scrollY > 56;
         if (this.currentView === "docs") {
           this.updateDocsScrollState();
           return;

@@ -1,4 +1,9 @@
-﻿.page-view-welcome { gap: 24px; }
+.page-view-welcome { gap: 24px; }
+#welcome-hero { order: 1; }
+#welcome-workflow { order: 2; }
+#welcome-inputs { order: 3; }
+#welcome-compare { order: 4; }
+#welcome-run { order: 5; }
 .hero-card { background: linear-gradient(135deg, rgba(79, 156, 246, 0.12), rgba(255, 255, 255, 0.96)); }
 .hero-layout {
   display: grid;
