@@ -51,6 +51,7 @@ Important shared surfaces:
 - `GET /api/health`
 - `GET /api/runtime/options`
 - `GET /api/docs/{language}`
+- `GET /api/session/{sessionId}`
 - `POST /api/patch/apply`
 - `POST /api/session/{sessionId}/clear`
 

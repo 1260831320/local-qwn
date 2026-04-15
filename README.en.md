@@ -1,4 +1,4 @@
-# Hongzhi v1.0.5
+# Hongzhi v1.1.0
 
 Hongzhi is a local-first intelligent workspace.
 
@@ -14,6 +14,7 @@ This release focuses on four things:
 - read the current guide and jump between sections quickly
 - ask questions in the workspace and review the response flow
 - switch the response engine and response mode when needed
+- refresh the same browser and continue the recent conversation when it is still available
 - review pending changes before applying them
 
 ## Three Main Views
@@ -28,6 +29,7 @@ This release focuses on four things:
 
 - keep the conversation at the top
 - view service status and preferences on the same page
+- reconnect to the recent conversation and pending change after refresh in the same browser
 - preview changes before applying them
 
 ### Manual
@@ -58,9 +60,9 @@ macOS / Linux:
 
 ## Current Release
 
-- version: `v1.0.5`
+- version: `v1.1.0`
 - product form: local-first intelligent workspace
-- focus: core-first layout, user-facing copy, bilingual manual reading
+- focus: session restore, core-first layout, user-facing copy, bilingual manual reading
 
 ## Local Experience Principles
 
@@ -90,13 +92,12 @@ The following areas are still placeholders in this release:
 - digital avatar expression
 - emotion suggestion output
 
-## What Changed In v1.0.5
+## What Changed In v1.1.0
 
-- Overview, Workspace, and Manual now prioritize core content first
-- the persistent left banner can collapse to free more space
-- frontend copy is now user-facing instead of developer-facing
-- the homepage and browser icon now use the new logo
-- the bilingual manual now matches the current release tone
+- the workspace can reconnect to the recent conversation after refresh in the same browser
+- pending changes can be restored together with the recent session when still available
+- response preferences now stay closer to the current local workspace state
+- the existing core-first layout and bilingual manual continue as the default experience
 
 ## Reminder
 

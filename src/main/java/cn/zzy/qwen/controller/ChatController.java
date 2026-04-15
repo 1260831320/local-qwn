@@ -7,6 +7,7 @@ import cn.zzy.qwen.model.HealthResponse;
 import cn.zzy.qwen.model.PatchApplyRequest;
 import cn.zzy.qwen.model.PatchApplyResponse;
 import cn.zzy.qwen.model.RuntimeOptionsResponse;
+import cn.zzy.qwen.model.SessionSnapshotResponse;
 import cn.zzy.qwen.service.AgentService;
 import cn.zzy.qwen.service.HealthService;
 import cn.zzy.qwen.service.ProjectDocsService;
@@ -55,6 +56,11 @@ public class ChatController {
     @GetMapping("/docs/{language}")
     public DocsResponse docs(@PathVariable String language) {
         return projectDocsService.readme(language);
+    }
+
+    @GetMapping("/session/{sessionId}")
+    public SessionSnapshotResponse sessionSnapshot(@PathVariable String sessionId) {
+        return agentService.sessionSnapshot(sessionId);
     }
 
     @PostMapping("/chat")

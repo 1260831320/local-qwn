@@ -6,6 +6,7 @@ import cn.zzy.qwen.model.ChatResponse;
 import cn.zzy.qwen.model.PendingPatch;
 import cn.zzy.qwen.model.PatchApplyRequest;
 import cn.zzy.qwen.model.PatchApplyResponse;
+import cn.zzy.qwen.model.SessionSnapshotResponse;
 import cn.zzy.qwen.model.ToolResult;
 import cn.zzy.qwen.tools.ToolRegistry;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -179,5 +180,36 @@ class AgentServiceTest {
 
         assertThat(response.success()).isFalse();
         verify(pendingPatchService, never()).clear("s1");
+    }
+
+    @Test
+    void sessionSnapshotReturnsHistoryAndPendingPatch() {
+        PendingPatch pendingPatch = new PendingPatch("p1", "a.txt", "old", "new", "preview");
+        List<cn.zzy.qwen.model.ConversationMessage> history = List.of(
+                new cn.zzy.qwen.model.ConversationMessage("user", "hello"),
+                new cn.zzy.qwen.model.ConversationMessage("assistant", "hi")
+        );
+        when(conversationMemoryService.history("s1")).thenReturn(history);
+        when(pendingPatchService.find("s1")).thenReturn(Optional.of(pendingPatch));
+
+        SessionSnapshotResponse response = agentService.sessionSnapshot("s1");
+
+        assertThat(response.sessionId()).isEqualTo("s1");
+        assertThat(response.hasContent()).isTrue();
+        assertThat(response.messages()).containsExactlyElementsOf(history);
+        assertThat(response.pendingPatch()).isEqualTo(pendingPatch);
+    }
+
+    @Test
+    void sessionSnapshotMarksEmptySessionAsNoContent() {
+        when(conversationMemoryService.history("s1")).thenReturn(List.of());
+        when(pendingPatchService.find("s1")).thenReturn(Optional.empty());
+
+        SessionSnapshotResponse response = agentService.sessionSnapshot("s1");
+
+        assertThat(response.sessionId()).isEqualTo("s1");
+        assertThat(response.hasContent()).isFalse();
+        assertThat(response.messages()).isEmpty();
+        assertThat(response.pendingPatch()).isNull();
     }
 }

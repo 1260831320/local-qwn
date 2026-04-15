@@ -48,6 +48,9 @@ Styles:
 - preserve the same-source docs flow:
   - docs content comes from backend `GET /api/docs/{language}`
   - repository `README.md` and `README.en.md` remain the content source of truth
+- preserve local-first workspace continuity:
+  - keep browser-side workspace state restore local-only
+  - reconnect recent conversation and pending patch through backend `GET /api/session/{sessionId}` instead of hardcoded frontend snapshots
 - user-visible UI copy must stay user-facing:
   - avoid API names, file paths, internal architecture labels, and debugging jargon in normal page copy
   - treat `README.md` / `README.en.md` as current-version guides for end users first

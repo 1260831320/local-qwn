@@ -69,7 +69,7 @@ Do not introduce cloud-only dependencies, paid API lock-in, or unrestricted shel
 
 Current release target:
 
-- `v1.0.5`
+- `v1.1.0`
 
 ### Runtime
 
@@ -109,6 +109,9 @@ Current UX shape:
   - `docs`
 - core-first page layout:
   - keep the primary task area above secondary status / configuration content
+- workspace continuity:
+  - the browser workspace remembers the current session id, key preferences, and local patch history
+  - refresh can reconnect to recent conversation and pending patch through `GET /api/session/{sessionId}` while the backend process is still alive
 - user-facing docs tone:
   - `README.md` and `README.en.md` should read as current-version guides in the docs view
 - docs view features:
@@ -153,6 +156,7 @@ Current HTTP endpoints:
 - `GET /api/health`
 - `GET /api/runtime/options`
 - `GET /api/docs/{language}`
+- `GET /api/session/{sessionId}`
 - `POST /api/patch/apply`
 - `POST /api/session/{sessionId}/clear`
 
@@ -216,7 +220,7 @@ Use a stable three-part version scheme:
 - git tag format:
   - `vMAJOR.MINOR.PATCH`
 - current example:
-  - `v1.0.5`
+  - `v1.1.0`
 
 Meaning of each number:
 
@@ -282,11 +286,11 @@ Push-time rule:
 
 Suggestion examples:
 
-- current `v1.0.5`, layout/copy fix only:
-  - suggest `v1.0.6`
-- current `v1.0.5`, add a new usable docs interaction:
-  - suggest `v1.1.0`
-- current `v1.0.5`, break existing runtime-options payload:
+- current `v1.1.0`, layout/copy fix only:
+  - suggest `v1.1.1`
+- current `v1.1.0`, add a new usable docs interaction:
+  - suggest `v1.2.0`
+- current `v1.1.0`, break existing runtime-options payload:
   - suggest `v2.0.0`
 
 ## Working Rules
@@ -299,7 +303,7 @@ Suggestion examples:
 - do not leave Spring Boot running on port `8080` after verification
 - if local runtime verification starts the app, stop it before handoff
 - `README.md` and `README.en.md` remain the docs-view content source of truth
-- session memory is currently in-memory only unless code explicitly changes that
+- session memory remains backend in-memory only for now, but the browser workspace can reconnect to the current session through local browser state + `GET /api/session/{sessionId}`
 - when major task facts change, update the relevant `AGENTS.md`
 
 ## Verification Expectations
