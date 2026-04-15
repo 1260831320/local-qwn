@@ -69,7 +69,7 @@ Do not introduce cloud-only dependencies, paid API lock-in, or unrestricted shel
 
 Current release target:
 
-- `v1.1.0`
+- `v1.2.0`
 
 ### Runtime
 
@@ -110,8 +110,8 @@ Current UX shape:
 - core-first page layout:
   - keep the primary task area above secondary status / configuration content
 - workspace continuity:
-  - the browser workspace remembers the current session id, key preferences, and local patch history
-  - refresh can reconnect to recent conversation and pending patch through `GET /api/session/{sessionId}` while the backend process is still alive
+  - the browser workspace remembers the current session id, key preferences, local patch history, and the currently selected review item
+  - refresh can reconnect to recent conversation, pending patch, and structured patch history through `GET /api/session/{sessionId}` while the backend process is still alive
 - user-facing docs tone:
   - `README.md` and `README.en.md` should read as current-version guides in the docs view
 - docs view features:
@@ -159,6 +159,12 @@ Current HTTP endpoints:
 - `GET /api/session/{sessionId}`
 - `POST /api/patch/apply`
 - `POST /api/session/{sessionId}/clear`
+
+Current session snapshot contents:
+
+- recent conversation messages
+- current pending patch
+- structured patch history for review
 
 Current registered tools:
 
@@ -220,7 +226,7 @@ Use a stable three-part version scheme:
 - git tag format:
   - `vMAJOR.MINOR.PATCH`
 - current example:
-  - `v1.1.0`
+  - `v1.2.0`
 
 Meaning of each number:
 
@@ -286,11 +292,11 @@ Push-time rule:
 
 Suggestion examples:
 
-- current `v1.1.0`, layout/copy fix only:
-  - suggest `v1.1.1`
-- current `v1.1.0`, add a new usable docs interaction:
-  - suggest `v1.2.0`
-- current `v1.1.0`, break existing runtime-options payload:
+- current `v1.2.0`, layout/copy fix only:
+  - suggest `v1.2.1`
+- current `v1.2.0`, add a new usable docs interaction:
+  - suggest `v1.3.0`
+- current `v1.2.0`, break existing runtime-options payload:
   - suggest `v2.0.0`
 
 ## Working Rules

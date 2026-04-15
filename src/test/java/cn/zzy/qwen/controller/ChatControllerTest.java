@@ -6,6 +6,7 @@ import cn.zzy.qwen.model.DocsResponse;
 import cn.zzy.qwen.model.HealthResponse;
 import cn.zzy.qwen.model.PendingPatch;
 import cn.zzy.qwen.model.PatchApplyResponse;
+import cn.zzy.qwen.model.PatchHistoryEntry;
 import cn.zzy.qwen.model.RuntimeOptionsResponse;
 import cn.zzy.qwen.model.SessionSnapshotResponse;
 import cn.zzy.qwen.service.AgentService;
@@ -174,7 +175,8 @@ class ChatControllerTest {
                         new cn.zzy.qwen.model.ConversationMessage("user", "hello"),
                         new cn.zzy.qwen.model.ConversationMessage("assistant", "hi")
                 ),
-                pendingPatch
+                pendingPatch,
+                List.of(new PatchHistoryEntry("h1", "applied", "a.txt", "patched", "old", "new", "preview", "2026-04-15T10:00:00+08:00"))
         ));
 
         mockMvc.perform(get("/api/session/s1"))
@@ -183,7 +185,8 @@ class ChatControllerTest {
                 .andExpect(jsonPath("$.hasContent").value(true))
                 .andExpect(jsonPath("$.messages[0].role").value("user"))
                 .andExpect(jsonPath("$.messages[1].content").value("hi"))
-                .andExpect(jsonPath("$.pendingPatch.patchId").value("p1"));
+                .andExpect(jsonPath("$.pendingPatch.patchId").value("p1"))
+                .andExpect(jsonPath("$.patchHistory[0].status").value("applied"));
     }
 
     @Test

@@ -6,6 +6,7 @@ import cn.zzy.qwen.model.ChatResponse;
 import cn.zzy.qwen.model.PendingPatch;
 import cn.zzy.qwen.model.PatchApplyRequest;
 import cn.zzy.qwen.model.PatchApplyResponse;
+import cn.zzy.qwen.model.PatchHistoryEntry;
 import cn.zzy.qwen.model.SessionSnapshotResponse;
 import cn.zzy.qwen.model.ToolResult;
 import cn.zzy.qwen.tools.ToolRegistry;
@@ -50,6 +51,9 @@ class AgentServiceTest {
     private PendingPatchService pendingPatchService;
 
     @Mock
+    private PatchHistoryService patchHistoryService;
+
+    @Mock
     private ModelSelectionService modelSelectionService;
 
     private AgentService agentService;
@@ -75,6 +79,7 @@ class AgentServiceTest {
                 toolTraceFormatter,
                 conversationMemoryService,
                 pendingPatchService,
+                patchHistoryService,
                 modelSelectionService
         );
     }
@@ -138,6 +143,11 @@ class AgentServiceTest {
         verify(toolRegistry).execute(eq("preview_patch_file"), anyMap());
         verify(toolRegistry).execute(eq("patch_file"), anyMap());
         verify(pendingPatchService).save(eq("s1"), any(PendingPatch.class));
+        ArgumentCaptor<PatchHistoryEntry> historyCaptor = ArgumentCaptor.forClass(PatchHistoryEntry.class);
+        verify(patchHistoryService, org.mockito.Mockito.times(2)).append(eq("s1"), historyCaptor.capture());
+        assertThat(historyCaptor.getAllValues())
+                .extracting(PatchHistoryEntry::status)
+                .containsExactly("pending", "applied");
         verify(pendingPatchService).clear("s1");
     }
 
@@ -166,6 +176,7 @@ class AgentServiceTest {
         assertThat(captor.getValue()).containsEntry("path", "a.txt");
         assertThat(captor.getValue()).containsEntry("search", "old");
         assertThat(captor.getValue()).containsEntry("replace", "new");
+        verify(patchHistoryService).append(eq("s1"), any(PatchHistoryEntry.class));
         verify(pendingPatchService).clear("s1");
     }
 
@@ -179,6 +190,7 @@ class AgentServiceTest {
         PatchApplyResponse response = agentService.applyPatch(new PatchApplyRequest("s1", "p1"));
 
         assertThat(response.success()).isFalse();
+        verify(patchHistoryService).append(eq("s1"), any(PatchHistoryEntry.class));
         verify(pendingPatchService, never()).clear("s1");
     }
 
@@ -189,8 +201,12 @@ class AgentServiceTest {
                 new cn.zzy.qwen.model.ConversationMessage("user", "hello"),
                 new cn.zzy.qwen.model.ConversationMessage("assistant", "hi")
         );
+        List<PatchHistoryEntry> patchHistory = List.of(
+                new PatchHistoryEntry("h1", "applied", "a.txt", "patched", "old", "new", "preview", "2026-04-15T10:00:00+08:00")
+        );
         when(conversationMemoryService.history("s1")).thenReturn(history);
         when(pendingPatchService.find("s1")).thenReturn(Optional.of(pendingPatch));
+        when(patchHistoryService.history("s1")).thenReturn(patchHistory);
 
         SessionSnapshotResponse response = agentService.sessionSnapshot("s1");
 
@@ -198,12 +214,14 @@ class AgentServiceTest {
         assertThat(response.hasContent()).isTrue();
         assertThat(response.messages()).containsExactlyElementsOf(history);
         assertThat(response.pendingPatch()).isEqualTo(pendingPatch);
+        assertThat(response.patchHistory()).containsExactlyElementsOf(patchHistory);
     }
 
     @Test
     void sessionSnapshotMarksEmptySessionAsNoContent() {
         when(conversationMemoryService.history("s1")).thenReturn(List.of());
         when(pendingPatchService.find("s1")).thenReturn(Optional.empty());
+        when(patchHistoryService.history("s1")).thenReturn(List.of());
 
         SessionSnapshotResponse response = agentService.sessionSnapshot("s1");
 
@@ -211,5 +229,15 @@ class AgentServiceTest {
         assertThat(response.hasContent()).isFalse();
         assertThat(response.messages()).isEmpty();
         assertThat(response.pendingPatch()).isNull();
+        assertThat(response.patchHistory()).isEmpty();
+    }
+
+    @Test
+    void clearSessionAlsoClearsPatchHistory() {
+        agentService.clearSession("s1");
+
+        verify(conversationMemoryService).clear("s1");
+        verify(pendingPatchService).clear("s1");
+        verify(patchHistoryService).clear("s1");
     }
 }

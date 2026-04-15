@@ -4,6 +4,7 @@ import cn.zzy.qwen.model.ChatResponse;
 import cn.zzy.qwen.model.AgentAction;
 import cn.zzy.qwen.model.ChatRequest;
 import cn.zzy.qwen.model.ConversationMessage;
+import cn.zzy.qwen.model.PatchHistoryEntry;
 import cn.zzy.qwen.model.PendingPatch;
 import cn.zzy.qwen.model.PatchApplyRequest;
 import cn.zzy.qwen.model.PatchApplyResponse;
@@ -17,6 +18,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.time.OffsetDateTime;
 
 @Service
 public class AgentService {
@@ -29,6 +31,7 @@ public class AgentService {
     private final ToolTraceFormatter toolTraceFormatter;
     private final ConversationMemoryService conversationMemoryService;
     private final PendingPatchService pendingPatchService;
+    private final PatchHistoryService patchHistoryService;
     private final ModelSelectionService modelSelectionService;
 
     public AgentService(
@@ -39,6 +42,7 @@ public class AgentService {
             ToolTraceFormatter toolTraceFormatter,
             ConversationMemoryService conversationMemoryService,
             PendingPatchService pendingPatchService,
+            PatchHistoryService patchHistoryService,
             ModelSelectionService modelSelectionService
     ) {
         this.modelBackendRouter = modelBackendRouter;
@@ -48,6 +52,7 @@ public class AgentService {
         this.toolTraceFormatter = toolTraceFormatter;
         this.conversationMemoryService = conversationMemoryService;
         this.pendingPatchService = pendingPatchService;
+        this.patchHistoryService = patchHistoryService;
         this.modelSelectionService = modelSelectionService;
     }
 
@@ -122,11 +127,29 @@ public class AgentService {
                 );
                 approvedPatchForTurn = pendingPatch;
                 pendingPatchService.save(sessionId, pendingPatch);
+                patchHistoryService.append(sessionId, createPatchHistoryEntry(
+                        "pending",
+                        pendingPatch,
+                        "已生成变更预览，等待确认。"
+                ));
             }
             if ("patch_file".equals(result.tool()) && result.success()) {
+                if (approvedPatchForTurn != null) {
+                    patchHistoryService.append(sessionId, createPatchHistoryEntry(
+                            "applied",
+                            approvedPatchForTurn,
+                            result.output()
+                    ));
+                }
                 pendingPatch = null;
                 approvedPatchForTurn = null;
                 pendingPatchService.clear(sessionId);
+            } else if ("patch_file".equals(result.tool()) && approvedPatchForTurn != null) {
+                patchHistoryService.append(sessionId, createPatchHistoryEntry(
+                        "failed",
+                        approvedPatchForTurn,
+                        result.output()
+                ));
             }
         }
 
@@ -157,7 +180,18 @@ public class AgentService {
                 "replace", pendingPatch.replace()
         ));
         if (result.success()) {
+            patchHistoryService.append(request.sessionId(), createPatchHistoryEntry(
+                    "applied",
+                    pendingPatch,
+                    result.output()
+            ));
             pendingPatchService.clear(request.sessionId());
+        } else {
+            patchHistoryService.append(request.sessionId(), createPatchHistoryEntry(
+                    "failed",
+                    pendingPatch,
+                    result.output()
+            ));
         }
         return new PatchApplyResponse(result.success(), result.output());
     }
@@ -165,18 +199,43 @@ public class AgentService {
     public SessionSnapshotResponse sessionSnapshot(String sessionId) {
         List<ConversationMessage> history = conversationMemoryService.history(sessionId);
         Optional<PendingPatch> pendingPatch = pendingPatchService.find(sessionId);
-        boolean hasContent = !history.isEmpty() || pendingPatch.isPresent();
+        List<PatchHistoryEntry> patchHistory = patchHistoryService.history(sessionId);
+        boolean hasContent = !history.isEmpty() || pendingPatch.isPresent() || !patchHistory.isEmpty();
         return new SessionSnapshotResponse(
                 sessionId,
                 hasContent,
                 history,
-                pendingPatch.orElse(null)
+                pendingPatch.orElse(null),
+                patchHistory
         );
     }
 
     public void clearSession(String sessionId) {
         conversationMemoryService.clear(sessionId);
         pendingPatchService.clear(sessionId);
+        patchHistoryService.clear(sessionId);
+    }
+
+    private PatchHistoryEntry createPatchHistoryEntry(String status, PendingPatch patch, String message) {
+        return new PatchHistoryEntry(
+                UUID.randomUUID().toString(),
+                status,
+                patch.path(),
+                message == null || message.isBlank() ? defaultPatchHistoryMessage(status) : message,
+                patch.search(),
+                patch.replace(),
+                patch.preview(),
+                OffsetDateTime.now().toString()
+        );
+    }
+
+    private String defaultPatchHistoryMessage(String status) {
+        return switch (status) {
+            case "pending" -> "已生成变更预览，等待确认。";
+            case "applied" -> "变更已应用。";
+            case "failed" -> "变更应用失败。";
+            default -> "变更状态已更新。";
+        };
     }
 
     private ToolResult executeToolAction(AgentAction action, PendingPatch approvedPatchForTurn) {

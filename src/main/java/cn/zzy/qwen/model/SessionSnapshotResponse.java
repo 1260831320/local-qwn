@@ -6,6 +6,7 @@ public record SessionSnapshotResponse(
         String sessionId,
         boolean hasContent,
         List<ConversationMessage> messages,
-        PendingPatch pendingPatch
+        PendingPatch pendingPatch,
+        List<PatchHistoryEntry> patchHistory
 ) {
 }
