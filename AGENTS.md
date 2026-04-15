@@ -207,6 +207,88 @@ If a contract changes:
 - avoid exposing API names, file paths, internal architecture labels, or debugging jargon in normal UI copy unless the task explicitly requires it
 - when `README.md` / `README.en.md` are updated for the docs view, treat them as end-user-facing manuals first
 
+## Versioning Rules
+
+Use a stable three-part version scheme:
+
+- format:
+  - `MAJOR.MINOR.PATCH`
+- git tag format:
+  - `vMAJOR.MINOR.PATCH`
+- current example:
+  - `v1.0.5`
+
+Meaning of each number:
+
+- `MAJOR`
+  - increase when there is a breaking release boundary
+  - use this for incompatible API / DTO / config changes, major workflow rewrites, large architectural resets, or a clearly new product phase
+  - examples:
+    - `1.2.4 -> 2.0.0`
+    - docs payload changes in a non-backward-compatible way
+    - patch / session / runtime contract changes that require coordinated upgrade
+- `MINOR`
+  - increase when there is a backward-compatible but meaningful new capability
+  - use this for new user-facing modules, new pages, new endpoints, new local model/backend capability, major UX additions, or a release that noticeably expands what users can do
+  - examples:
+    - `1.0.5 -> 1.1.0`
+    - add a new browser workspace area
+    - add a new supported local engine path without breaking existing flows
+- `PATCH`
+  - increase for backward-compatible fixes and polish
+  - use this for bug fixes, copy cleanup, layout tuning, visual refinements, safe docs updates, regression fixes, tests, and small compatibility-safe adjustments
+  - examples:
+    - `1.0.5 -> 1.0.6`
+    - fix docs title encoding
+    - tighten chat layout or remove developer-facing wording
+
+Decision rule:
+
+- if one release contains multiple change types, use the highest-impact bump
+- do not bump `MINOR` or `MAJOR` only because files changed a lot; bump based on user-visible scope and compatibility impact
+- docs-only or AGENTS-only updates usually stay in `PATCH`
+- frontend + backend coordinated work can still be `PATCH` if it only fixes or refines an existing flow without expanding scope
+
+Recommended release classification for this repository:
+
+- `PATCH`
+  - UI copy cleanup
+  - layout optimization
+  - health / runtime display fixes
+  - docs rendering fixes
+  - safe test additions
+  - README / AGENTS synchronization
+- `MINOR`
+  - a new core workflow in `welcome / chat / docs`
+  - a new endpoint or tool capability exposed to users
+  - a new local inference path or clearly expanded supported machine/runtime capability
+  - a new reserved area becoming actually usable
+- `MAJOR`
+  - breaking contract changes across frontend/backend
+  - a release baseline reset
+  - a substantial product-direction shift that changes the main usage model
+
+Push-time rule:
+
+- before a release commit, tag, or push, Codex should give a suggested next version number unless the user already specified one
+- the suggestion should include one short reason tied to these rules
+- once the version is chosen, keep it consistent across:
+  - `pom.xml`
+  - `README.md`
+  - `README.en.md`
+  - `AGENTS.md` current release target when needed
+  - static asset version stamps when used
+  - git tag
+
+Suggestion examples:
+
+- current `v1.0.5`, layout/copy fix only:
+  - suggest `v1.0.6`
+- current `v1.0.5`, add a new usable docs interaction:
+  - suggest `v1.1.0`
+- current `v1.0.5`, break existing runtime-options payload:
+  - suggest `v2.0.0`
+
 ## Working Rules
 
 - `develop` is the default integration base for new work
