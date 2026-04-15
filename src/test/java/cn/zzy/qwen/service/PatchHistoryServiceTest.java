@@ -1,17 +1,28 @@
 package cn.zzy.qwen.service;
 
+import cn.zzy.qwen.config.SessionStoreProperties;
 import cn.zzy.qwen.model.PatchHistoryEntry;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
+import java.nio.file.Path;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 class PatchHistoryServiceTest {
 
+    @TempDir
+    Path tempDir;
+
+    private PatchHistoryService createService() {
+        return new PatchHistoryService(new SessionStateStore(new ObjectMapper(), new SessionStoreProperties(tempDir.toString())));
+    }
+
     @Test
     void keepsNewestEntriesFirst() {
-        PatchHistoryService service = new PatchHistoryService();
+        PatchHistoryService service = createService();
         PatchHistoryEntry first = new PatchHistoryEntry("1", "pending", "a.txt", "preview", "old", "new", "preview-1", "2026-04-15T10:00:00+08:00");
         PatchHistoryEntry second = new PatchHistoryEntry("2", "applied", "a.txt", "patched", "old", "new", "preview-1", "2026-04-15T10:05:00+08:00");
 
@@ -24,7 +35,7 @@ class PatchHistoryServiceTest {
 
     @Test
     void limitsHistorySize() {
-        PatchHistoryService service = new PatchHistoryService();
+        PatchHistoryService service = createService();
 
         for (int i = 0; i < 10; i++) {
             service.append("s1", new PatchHistoryEntry(

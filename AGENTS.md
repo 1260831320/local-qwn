@@ -69,7 +69,7 @@ Do not introduce cloud-only dependencies, paid API lock-in, or unrestricted shel
 
 Current release target:
 
-- `v1.2.0`
+- `v1.3.0`
 
 ### Runtime
 
@@ -111,7 +111,8 @@ Current UX shape:
   - keep the primary task area above secondary status / configuration content
 - workspace continuity:
   - the browser workspace remembers the current session id, key preferences, local patch history, and the currently selected review item
-  - refresh can reconnect to recent conversation, pending patch, and structured patch history through `GET /api/session/{sessionId}` while the backend process is still alive
+  - refresh can reconnect to recent conversation, pending patch, and structured patch history through `GET /api/session/{sessionId}`
+  - recent conversation, pending patch, and structured patch history now persist locally across backend restarts on the same machine
 - user-facing docs tone:
   - `README.md` and `README.en.md` should read as current-version guides in the docs view
 - docs view features:
@@ -130,6 +131,8 @@ Current UX shape:
   - `src/main/resources/machines/common.yml`
   - `src/main/resources/machines/default.yml`
   - `src/main/resources/machines/<profile>.yml`
+- local session persistence defaults to:
+  - `${user.dir}/.hongzhi/session-store`
 
 ### Model backends
 
@@ -226,7 +229,7 @@ Use a stable three-part version scheme:
 - git tag format:
   - `vMAJOR.MINOR.PATCH`
 - current example:
-  - `v1.2.0`
+  - `v1.3.0`
 
 Meaning of each number:
 
@@ -292,11 +295,11 @@ Push-time rule:
 
 Suggestion examples:
 
-- current `v1.2.0`, layout/copy fix only:
-  - suggest `v1.2.1`
-- current `v1.2.0`, add a new usable docs interaction:
-  - suggest `v1.3.0`
-- current `v1.2.0`, break existing runtime-options payload:
+- current `v1.3.0`, layout/copy fix only:
+  - suggest `v1.3.1`
+- current `v1.3.0`, add a new usable docs interaction:
+  - suggest `v1.4.0`
+- current `v1.3.0`, break existing runtime-options payload:
   - suggest `v2.0.0`
 
 ## Working Rules
@@ -309,7 +312,7 @@ Suggestion examples:
 - do not leave Spring Boot running on port `8080` after verification
 - if local runtime verification starts the app, stop it before handoff
 - `README.md` and `README.en.md` remain the docs-view content source of truth
-- session memory remains backend in-memory only for now, but the browser workspace can reconnect to the current session through local browser state + `GET /api/session/{sessionId}`
+- session state is now persisted locally by default, and the browser workspace can reconnect to the current session through local browser state + `GET /api/session/{sessionId}` even after a local backend restart
 - when major task facts change, update the relevant `AGENTS.md`
 
 ## Verification Expectations

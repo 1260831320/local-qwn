@@ -1,4 +1,4 @@
-# Hongzhi v1.2.0
+# Hongzhi v1.3.0
 
 Hongzhi is a local-first intelligent workspace.
 
@@ -15,6 +15,7 @@ This release focuses on four things:
 - ask questions in the workspace and review the response flow
 - switch the response engine and response mode when needed
 - refresh the same browser and continue the recent conversation when it is still available
+- restart the app on the same machine and continue the recent conversation and pending change
 - review pending changes before applying them
 - revisit recent applied or failed changes in the same workspace
 
@@ -31,6 +32,7 @@ This release focuses on four things:
 - keep the conversation at the top
 - view service status and preferences on the same page
 - reconnect to the recent conversation and pending change after refresh in the same browser
+- reconnect to the recent conversation, pending change, and recent change history after restarting the app on the same machine
 - preview changes before applying them
 - review recent applied or failed changes without leaving the workspace
 
@@ -62,9 +64,9 @@ macOS / Linux:
 
 ## Current Release
 
-- version: `v1.2.0`
+- version: `v1.3.0`
 - product form: local-first intelligent workspace
-- focus: session restore, change-history review, core-first layout, bilingual manual reading
+- focus: local session persistence, change-history review, core-first layout, bilingual manual reading
 
 ## Local Experience Principles
 
@@ -94,10 +96,11 @@ The following areas are still placeholders in this release:
 - digital avatar expression
 - emotion suggestion output
 
-## What Changed In v1.2.0
+## What Changed In v1.3.0
 
 - the workspace can reconnect to the recent conversation after refresh in the same browser
 - pending changes can be restored together with the recent session when still available
+- recent conversation, pending change, and recent change history now survive a local app restart on the same machine
 - recent changes are kept as a structured history and can be reviewed in the workspace
 - response preferences now stay closer to the current local workspace state
 - the existing core-first layout and bilingual manual continue as the default experience
