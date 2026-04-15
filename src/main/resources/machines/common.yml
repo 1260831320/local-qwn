@@ -27,3 +27,5 @@ qwen:
         description: Default coding and tool-planning profile.
   tools:
     workspace-root: ${QWEN_WORKSPACE_ROOT:${user.dir}}
+  session:
+    store-dir: ${QWEN_SESSION_STORE_DIR:${user.dir}/.hongzhi/session-store}

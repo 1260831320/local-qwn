@@ -51,6 +51,7 @@ Styles:
 - preserve local-first workspace continuity:
   - keep browser-side workspace state restore local-only
   - reconnect recent conversation, pending patch, and structured patch history through backend `GET /api/session/{sessionId}` instead of hardcoded frontend snapshots
+  - assume the same payload can now survive a local backend restart, so do not add duplicate browser-only shadow snapshots for core session content
   - keep patch review and recent change recall usable without leaving the workspace
 - user-visible UI copy must stay user-facing:
   - avoid API names, file paths, internal architecture labels, and debugging jargon in normal page copy

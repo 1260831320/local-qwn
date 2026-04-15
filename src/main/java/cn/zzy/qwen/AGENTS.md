@@ -60,6 +60,7 @@ Current session snapshot expectations:
 - recent conversation messages
 - current pending patch
 - structured patch history for review in the browser workspace
+- the same snapshot should remain recoverable after a local backend restart when local session persistence is available
 
 ## Backend Verification
 
