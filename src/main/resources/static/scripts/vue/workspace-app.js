@@ -312,6 +312,7 @@ window.HongzhiFrontend.createWorkspaceApp = () => {
         lastToolsUsed: [],
         pendingPatch: null,
         patchHistory: [],
+        selectedPatchHistoryId: "",
         chatMessages: [],
         composerText: "",
         requestStatusTone: "idle",
@@ -478,6 +479,13 @@ window.HongzhiFrontend.createWorkspaceApp = () => {
           levelLabel: `H${heading.level}`,
           index: String(index + 1).padStart(2, "0")
         }));
+      },
+
+      selectedPatchHistoryEntry() {
+        if (!this.patchHistory.length) {
+          return null;
+        }
+        return this.patchHistory.find((entry) => entry.id === this.selectedPatchHistoryId) || this.patchHistory[0];
       }
     },
 
@@ -506,6 +514,10 @@ window.HongzhiFrontend.createWorkspaceApp = () => {
         this.persistWorkspaceState();
       },
 
+      selectedPatchHistoryId() {
+        this.persistWorkspaceState();
+      },
+
       patchHistory: {
         handler() {
           this.persistWorkspaceState();
@@ -531,12 +543,84 @@ window.HongzhiFrontend.createWorkspaceApp = () => {
         return utils.getDocsLanguageLabel(language);
       },
 
-      getPatchHistoryTone(success) {
-        return success ? "success" : "fail";
+      normalizePatchHistoryStatus(entry) {
+        if (entry?.status === "pending" || entry?.status === "applied" || entry?.status === "failed") {
+          return entry.status;
+        }
+        if (typeof entry?.success === "boolean") {
+          return entry.success ? "applied" : "failed";
+        }
+        return "pending";
       },
 
-      getPatchHistoryLabel(success) {
-        return success ? "成功" : "失败";
+      getPatchHistoryTone(status) {
+        if (status === "pending") {
+          return "pending";
+        }
+        return status === "applied" ? "success" : "fail";
+      },
+
+      getPatchHistoryLabel(status) {
+        if (status === "pending") {
+          return "待确认";
+        }
+        return status === "applied" ? "已应用" : "失败";
+      },
+
+      formatPatchHistoryTime(entry) {
+        const raw = entry?.createdAt || entry?.time || "";
+        if (!raw) {
+          return "--";
+        }
+
+        const parsed = new Date(raw);
+        if (Number.isNaN(parsed.getTime())) {
+          return raw;
+        }
+
+        return parsed.toLocaleString("zh-CN", { hour12: false });
+      },
+
+      buildPatchHistoryEntry(status, patch, message, createdAt = new Date().toISOString()) {
+        return {
+          id: createSessionId(),
+          status,
+          path: patch?.path || "未标注文件",
+          message: message || (status === "pending"
+            ? "已生成变更预览，等待确认。"
+            : status === "applied"
+              ? "变更已应用。"
+              : "变更应用失败。"),
+          search: patch?.search || "",
+          replace: patch?.replace || "",
+          preview: patch?.preview || "",
+          createdAt
+        };
+      },
+
+      setPatchHistory(entries, options = {}) {
+        const normalized = this.normalizeStoredPatchHistory(entries);
+        this.patchHistory = normalized;
+
+        if (!normalized.length) {
+          this.selectedPatchHistoryId = "";
+          return;
+        }
+
+        if (options.preferEntryId && normalized.some((entry) => entry.id === options.preferEntryId)) {
+          this.selectedPatchHistoryId = options.preferEntryId;
+          return;
+        }
+
+        if (options.preserveSelection && normalized.some((entry) => entry.id === this.selectedPatchHistoryId)) {
+          return;
+        }
+
+        this.selectedPatchHistoryId = normalized[0].id;
+      },
+
+      selectPatchHistory(entryId) {
+        this.selectedPatchHistoryId = entryId;
       },
 
       findProfileOption(profileId) {
@@ -711,10 +795,13 @@ window.HongzhiFrontend.createWorkspaceApp = () => {
           .filter((entry) => entry && typeof entry === "object")
           .map((entry) => ({
             id: String(entry.id || createSessionId()),
+            status: this.normalizePatchHistoryStatus(entry),
             path: String(entry.path || "未标注文件"),
-            success: Boolean(entry.success),
-            message: String(entry.message || (entry.success ? "变更已应用。" : "变更应用失败。")),
-            time: String(entry.time || "")
+            message: String(entry.message || ""),
+            search: String(entry.search || ""),
+            replace: String(entry.replace || ""),
+            preview: String(entry.preview || ""),
+            createdAt: String(entry.createdAt || entry.time || "")
           }))
           .slice(0, MAX_PATCH_HISTORY_ITEMS);
       },
@@ -729,7 +816,10 @@ window.HongzhiFrontend.createWorkspaceApp = () => {
         this.selectedModelProfile = typeof storedState?.selectedModelProfile === "string" && storedState.selectedModelProfile.trim()
           ? storedState.selectedModelProfile
           : "auto";
-        this.patchHistory = this.normalizeStoredPatchHistory(storedState?.patchHistory);
+        this.selectedPatchHistoryId = typeof storedState?.selectedPatchHistoryId === "string"
+          ? storedState.selectedPatchHistoryId
+          : "";
+        this.setPatchHistory(storedState?.patchHistory || [], { preserveSelection: true });
         this.currentView = locationState.view;
         this.docsLanguage = locationState.language;
         this.sidebarExpanded = typeof storedState?.sidebarExpanded === "boolean"
@@ -745,6 +835,7 @@ window.HongzhiFrontend.createWorkspaceApp = () => {
           currentView: this.currentView,
           docsLanguage: this.docsLanguage,
           sidebarExpanded: this.sidebarExpanded,
+          selectedPatchHistoryId: this.selectedPatchHistoryId,
           patchHistory: this.patchHistory.slice(0, MAX_PATCH_HISTORY_ITEMS)
         });
       },
@@ -768,10 +859,16 @@ window.HongzhiFrontend.createWorkspaceApp = () => {
         try {
           const data = await utils.requestJson(`/api/session/${encodeURIComponent(this.sessionId)}`);
           const messages = Array.isArray(data.messages) ? data.messages : [];
+          const patchHistory = Array.isArray(data.patchHistory) ? data.patchHistory : [];
           this.pendingPatch = data.pendingPatch || null;
           this.lastTrace = [];
           this.lastToolsUsed = [];
           this.traceVisible = false;
+          if (patchHistory.length) {
+            this.setPatchHistory(patchHistory, { preserveSelection: true });
+          } else if (this.patchHistory.length && !this.selectedPatchHistoryId) {
+            this.selectedPatchHistoryId = this.patchHistory[0].id;
+          }
 
           if (!data.hasContent) {
             if (!this.chatMessages.length) {
@@ -1018,6 +1115,8 @@ window.HongzhiFrontend.createWorkspaceApp = () => {
           this.setRequestStatus("idle", data.fallbackUsed ? "状态：已完成，已切换到备用引擎" : "状态：已完成");
 
           if (data.pendingPatch) {
+            const entry = this.buildPatchHistoryEntry("pending", data.pendingPatch, "已生成变更预览，等待确认。");
+            this.setPatchHistory([entry, ...this.patchHistory], { preferEntryId: entry.id });
             this.showToast("已生成变更预览，确认后可直接应用。", "info");
           } else if (data.fallbackUsed) {
             this.showToast(`本次请求已回退到 ${utils.formatBackendLabel(data.backend)}。`, "warning");
@@ -1042,15 +1141,8 @@ window.HongzhiFrontend.createWorkspaceApp = () => {
           return;
         }
 
-        this.patchHistory.unshift({
-          id: createSessionId(),
-          path: patch.path || "未标注文件",
-          success: Boolean(success),
-          message: message || (success ? "变更已应用。" : "变更应用失败。"),
-          time: new Date().toLocaleString("zh-CN", { hour12: false })
-        });
-
-        this.patchHistory = this.patchHistory.slice(0, MAX_PATCH_HISTORY_ITEMS);
+        const entry = this.buildPatchHistoryEntry(success ? "applied" : "failed", patch, message);
+        this.setPatchHistory([entry, ...this.patchHistory], { preferEntryId: entry.id });
       },
 
       async applyPatch() {
@@ -1105,7 +1197,7 @@ window.HongzhiFrontend.createWorkspaceApp = () => {
         this.lastTrace = [];
         this.lastToolsUsed = [];
         this.pendingPatch = null;
-        this.patchHistory = [];
+        this.setPatchHistory([]);
         this.traceVisible = false;
         this.composerText = "";
         this.resetChatLog();

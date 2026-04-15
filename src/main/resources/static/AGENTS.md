@@ -50,7 +50,8 @@ Styles:
   - repository `README.md` and `README.en.md` remain the content source of truth
 - preserve local-first workspace continuity:
   - keep browser-side workspace state restore local-only
-  - reconnect recent conversation and pending patch through backend `GET /api/session/{sessionId}` instead of hardcoded frontend snapshots
+  - reconnect recent conversation, pending patch, and structured patch history through backend `GET /api/session/{sessionId}` instead of hardcoded frontend snapshots
+  - keep patch review and recent change recall usable without leaving the workspace
 - user-visible UI copy must stay user-facing:
   - avoid API names, file paths, internal architecture labels, and debugging jargon in normal page copy
   - treat `README.md` / `README.en.md` as current-version guides for end users first

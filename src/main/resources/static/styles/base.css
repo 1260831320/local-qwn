@@ -585,16 +585,42 @@ code, pre { font-family: Consolas, "SFMono-Regular", monospace; }
   grid-template-columns: auto minmax(0, 1fr) auto;
   gap: 12px;
   align-items: start;
+  width: 100%;
   padding: 14px 16px;
   border-radius: 18px;
   border: 1px solid var(--border);
   background: rgba(255, 255, 255, 0.8);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
 }
+.patch-history-item.pending { border-color: rgba(79, 156, 246, 0.18); }
 .patch-history-item.success { border-color: rgba(24, 123, 89, 0.18); }
 .patch-history-item.fail { border-color: rgba(192, 86, 86, 0.18); }
+.patch-history-item.active {
+  background: rgba(244, 248, 255, 0.96);
+  box-shadow: var(--shadow-soft);
+}
+.patch-history-item:focus-visible {
+  outline: 2px solid rgba(79, 156, 246, 0.35);
+  outline-offset: 2px;
+}
 .patch-history-badge { min-height: 28px; padding: 0 10px; border-radius: 999px; font-size: 12px; font-weight: 700; }
 .patch-history-path { font-weight: 700; word-break: break-word; }
 .patch-history-message, .patch-history-time { color: var(--muted); }
+.patch-history-item.pending .patch-history-badge { background: rgba(79, 156, 246, 0.12); color: var(--primary-dark); }
+.patch-review-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 14px;
+  padding: 16px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  background: rgba(244, 248, 255, 0.7);
+}
+.section-heading.compact { margin-bottom: 0; }
 .toast-stack {
   position: fixed;
   right: 20px;

@@ -55,6 +55,12 @@ Important shared surfaces:
 - `POST /api/patch/apply`
 - `POST /api/session/{sessionId}/clear`
 
+Current session snapshot expectations:
+
+- recent conversation messages
+- current pending patch
+- structured patch history for review in the browser workspace
+
 ## Backend Verification
 
 After meaningful backend changes, run:

@@ -4,9 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>鸿栀本地工作台</title>
-  <link rel="icon" type="image/png" href="/logo.png?v=1.1.0">
-  <link rel="apple-touch-icon" href="/logo.png?v=1.1.0">
-  <link rel="stylesheet" href="/styles.css?v=1.1.0">
+  <link rel="icon" type="image/png" href="/logo.png?v=1.2.0">
+  <link rel="apple-touch-icon" href="/logo.png?v=1.2.0">
+  <link rel="stylesheet" href="/styles.css?v=1.2.0">
 </head>
 <body>
 <div id="app" v-cloak>
@@ -23,7 +23,7 @@
         @click="switchView('welcome', { resetScroll: true })"
       >
         <span class="brand-mark">
-          <img class="brand-mark-image" src="/logo.png?v=1.1.0" alt="鸿栀 logo">
+          <img class="brand-mark-image" src="/logo.png?v=1.2.0" alt="鸿栀 logo">
         </span>
         <h1>鸿栀本地工作台</h1>
       </button>
@@ -483,20 +483,55 @@
               </div>
 
               <div v-if="pendingPatch.preview" class="code-block">
-                <div class="code-block-head"><span>PATCH PREVIEW</span></div>
+                <div class="code-block-head"><span>变更预览</span></div>
                 <pre><code>{{ pendingPatch.preview }}</code></pre>
               </div>
             </div>
 
             <div v-if="patchHistory.length" class="patch-history-list">
-              <article v-for="entry in patchHistory" :key="entry.id" class="patch-history-item" :class="getPatchHistoryTone(entry.success)">
-                <span class="patch-history-badge">{{ getPatchHistoryLabel(entry.success) }}</span>
+              <button
+                v-for="entry in patchHistory"
+                :key="entry.id"
+                type="button"
+                class="patch-history-item"
+                :class="[getPatchHistoryTone(entry.status), { active: selectedPatchHistoryEntry && selectedPatchHistoryEntry.id === entry.id }]"
+                @click="selectPatchHistory(entry.id)"
+              >
+                <span class="patch-history-badge">{{ getPatchHistoryLabel(entry.status) }}</span>
                 <div>
                   <div class="patch-history-path">{{ entry.path }}</div>
                   <div class="patch-history-message">{{ entry.message }}</div>
                 </div>
-                <time class="patch-history-time">{{ entry.time }}</time>
-              </article>
+                <time class="patch-history-time">{{ formatPatchHistoryTime(entry) }}</time>
+              </button>
+            </div>
+
+            <div v-if="selectedPatchHistoryEntry" class="patch-review-card">
+              <div class="section-heading compact">
+                <div>
+                  <p class="eyebrow">回看详情</p>
+                  <h4>{{ getPatchHistoryLabel(selectedPatchHistoryEntry.status) }} · {{ selectedPatchHistoryEntry.path }}</h4>
+                </div>
+                <time class="patch-history-time">{{ formatPatchHistoryTime(selectedPatchHistoryEntry) }}</time>
+              </div>
+
+              <p class="section-note">{{ selectedPatchHistoryEntry.message }}</p>
+
+              <div v-if="selectedPatchHistoryEntry.search || selectedPatchHistoryEntry.replace" class="patch-diff">
+                <section class="diff-card remove">
+                  <div class="diff-label">原始片段</div>
+                  <pre class="diff-body">{{ selectedPatchHistoryEntry.search || "(空)" }}</pre>
+                </section>
+                <section class="diff-card add">
+                  <div class="diff-label">替换片段</div>
+                  <pre class="diff-body">{{ selectedPatchHistoryEntry.replace || "(空)" }}</pre>
+                </section>
+              </div>
+
+              <div v-if="selectedPatchHistoryEntry.preview" class="code-block">
+                <div class="code-block-head"><span>变更预览回看</span></div>
+                <pre><code>{{ selectedPatchHistoryEntry.preview }}</code></pre>
+              </div>
             </div>
           </section>
         </aside>
@@ -616,10 +651,10 @@
 </div>
 </div>
 
-<script defer src="/vendor/vue.global.prod.js?v=1.1.0"></script>
-<script defer src="/scripts/core.js?v=1.1.0"></script>
-<script defer src="/scripts/markdown.js?v=1.1.0"></script>
-<script defer src="/scripts/vue/workspace-app.js?v=1.1.0"></script>
-<script defer src="/app.js?v=1.1.0"></script>
+<script defer src="/vendor/vue.global.prod.js?v=1.2.0"></script>
+<script defer src="/scripts/core.js?v=1.2.0"></script>
+<script defer src="/scripts/markdown.js?v=1.2.0"></script>
+<script defer src="/scripts/vue/workspace-app.js?v=1.2.0"></script>
+<script defer src="/app.js?v=1.2.0"></script>
 </body>
 </html>
